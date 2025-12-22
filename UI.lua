@@ -1,6 +1,6 @@
-local Luxt1 = {}
+local Warp = {}
 
-function Luxt1.CreateWindow(libName, logoId)
+function Warp.CreateWindow(libName, logoId)
     local LuxtLib = Instance.new("ScreenGui")
     local shadow = Instance.new("ImageLabel")
     local MainFrame = Instance.new("Frame")
@@ -1278,4 +1278,4 @@ function Luxt1.CreateWindow(libName, logoId)
     return TabHandling
 end
 
-return Luxt1
+return Warp
