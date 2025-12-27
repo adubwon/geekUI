@@ -14,23 +14,13 @@ local DISCORD_LINK = "https://discord.gg/warphub"
 -- UNIVERSAL SCRIPTS (Available in all games)
 local UNIVERSAL_SCRIPTS = {
     ["Universal Warp"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua",
-    ["Private Server"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/privateserver.lua",
-    ["Admin Commands"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/admin.lua",
-    ["ESP & Aimbot"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/esp.lua",
-    ["Infinite Yield"] = "https://github.com/EdgeIY/infiniteyield/raw/master/source",
-    ["Simple Spy"] = "https://github.com/exxtremestuffs/SimpleSpySource/raw/master/SimpleSpy.lua",
-    ["Chat Bypass"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/chatbypass.lua"
+    ["Private Server"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/privateserver.lua"
 }
 
 -- GAME-SPECIFIC SCRIPTS
 local GAME_SCRIPTS = {
     [88929752766075] = {
-        ["Blade Battle"] = "https://raw.githubusercontent.com/adubwon/geekUI/main/Games/BladeBattle.lua",
-        ["Blade Battle Alt"] = "https://raw.githubusercontent.com/adubwon/geekUI/main/Games/BladeBattle_Alt.lua"
-    },
-    [286090429] = {
-        ["Arsenal Enhanced"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/ArsenalEnhanced.lua",
-        ["Silent Aim"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/ArsenalSilent.lua"
+        ["Blade Battle"] = "https://raw.githubusercontent.com/adubwon/geekUI/main/Games/BladeBattle.lua"
     },
     [85509428618863] = {
         ["WormIO"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/WormIO.lua"
@@ -42,22 +32,13 @@ local GAME_SCRIPTS = {
         ["Laser A Planet"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/Laser%20A%20Planet.lua"
     },
     [8737602449] = {
-        ["PlsDonate"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/PlsDonate.lua",
-        ["Auto Farm"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/PlsDonateFarm.lua"
+        ["PlsDonate"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/PlsDonate.lua"
     },
     [3623096087] = {
-        ["Muscle Legends"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/musclelegends.lua",
-        ["Auto Train"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/MuscleAutoTrain.lua"
+        ["Muscle Legends"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/musclelegends.lua"
     },
     [2788229376] = {
-        ["Da Hood"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/DaHood.lua",
-        ["Silent Aim"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/DaHoodSilent.lua"
-    },
-    [4520749081] = {
-        ["Knight"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/Knight.lua"
-    },
-    [6447798030] = {
-        ["Doors"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/Doors.lua"
+        ["Da Hood"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/DaHood.lua"
     }
 }
 
