@@ -1,672 +1,851 @@
-make this look better and more organized, -- Warp Key System - WITH UNIVERSAL SECTION AND FIXED UI
+--[[
+    Warp Key System v2.0
+    Enhanced with Universal Section and Fixed UI
+    Organized and Optimized
+]]
 
-local plr = game.Players.LocalPlayer
-local uis = game:GetService("UserInputService")
-local tw = game:GetService("TweenService")
-local sg = game:GetService("StarterGui")
-local http = game:GetService("HttpService")
+-- Services
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local StarterGui = game:GetService("StarterGui")
+local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
 
---------------------------------------------------
--- CONFIG
---------------------------------------------------
+-- Player reference
+local LocalPlayer = Players.LocalPlayer
 
-local CORRECT_KEY = "warpkey"
-local DISCORD_LINK = "https://discord.gg/warphub"
+--======================================================================--
+-- CONFIGURATION
+--======================================================================--
 
--- UNIVERSAL SCRIPTS (Available in all games)
-local UNIVERSAL_SCRIPTS = {
-    ["Universal Warp"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua",
-    ["Private Server"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/privateserver.lua",
-    ["Admin Commands"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/admin.lua",
-    ["ESP & Aimbot"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/esp.lua"
+local CONFIG = {
+    CORRECT_KEY = "warpkey",
+    DISCORD_LINK = "https://discord.gg/warphub",
+    
+    -- Storage
+    KEY_STORAGE_FILE = "Warp_KeyData.json",
+    
+    -- UI Sizes
+    ICON_SIZE = UDim2.new(0, 60, 0, 60),
+    KEY_FRAME_SIZE = UDim2.new(0, 400, 0, 320),
+    SELECTION_FRAME_SIZE = UDim2.new(0, 450, 0, 500),
+    
+    -- Animation
+    TWEEN_DURATION = 0.3,
+    TWEEN_STYLE = Enum.EasingStyle.Quad,
+    
+    -- Notifications
+    NOTIFICATION_DURATION = 3
 }
 
--- GAME-SPECIFIC SCRIPTS
-local GAME_SCRIPTS = {
-    [88929752766075] = {
-        ["Blade Battle"] = "https://raw.githubusercontent.com/adubwon/geekUI/main/Games/BladeBattle.lua",
-        ["Blade Battle Alt"] = "https://raw.githubusercontent.com/adubwon/geekUI/main/Games/BladeBattle_Alt.lua"
-    },
-    [109397169461300] = {
-        ["Game Specific"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/SpecificGame.lua"
-    },
-    [286090429] = {
-        ["Arsenal Enhanced"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/ArsenalEnhanced.lua"
-    },
-    [85509428618863] = {
-        ["WormIO"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/WormIO.lua"
-    },
-    [116610479068550] = {
-        ["Class Clash"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/ClassClash.lua"
-    },
-    [133614490579000] = {
-        ["Laser A Planet"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/Laser%20A%20Planet.lua"
-    },
-    [8737602449] = {
-        ["PlsDonate"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/PlsDonate.lua"
-    },
-    [3623096087] = {
-        ["Muscle Legends"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/musclelegends.lua"
-    },
-}
-
-local CURRENT_PLACE_ID = game.PlaceId
-local GAME_SPECIFIC_SCRIPTS = GAME_SCRIPTS[CURRENT_PLACE_ID] or {}
-
---------------------------------------------------
--- STORAGE
---------------------------------------------------
-
-local KEY_STORAGE_FILE = "Warp_KeyData.json"
-
---------------------------------------------------
--- COLORS
---------------------------------------------------
+--======================================================================--
+-- COLOR THEME
+--======================================================================--
 
 local COLORS = {
     Primary = Color3.fromRGB(0, 150, 255),
     Secondary = Color3.fromRGB(0, 100, 200),
     Accent = Color3.fromRGB(100, 200, 255),
+    
     Background = Color3.fromRGB(15, 15, 15),
     SecondaryBG = Color3.fromRGB(25, 25, 25),
     Frame = Color3.fromRGB(35, 35, 35),
+    
     Text = Color3.fromRGB(255, 255, 255),
     TextDim = Color3.fromRGB(180, 180, 180),
+    
     Success = Color3.fromRGB(50, 255, 50),
     Error = Color3.fromRGB(255, 50, 50),
     Warning = Color3.fromRGB(255, 200, 50),
+    
     Universal = Color3.fromRGB(150, 50, 255),
     Game = Color3.fromRGB(50, 255, 150),
+    
+    Discord = Color3.fromRGB(88, 101, 242)
 }
 
---------------------------------------------------
--- NOTIFICATION SYSTEM
---------------------------------------------------
+--======================================================================--
+-- SCRIPT DATABASE
+--======================================================================--
 
-local notificationQueue = {}
-local isShowingNotification = false
-
-local function showNotification(title, text, color, duration)
-    if not title or not text then return end
+local SCRIPT_DB = {
+    Universal = {
+        ["Universal Warp"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua",
+        ["Private Server"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/privateserver.lua",
+        ["Admin Commands"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/admin.lua",
+        ["ESP & Aimbot"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/esp.lua"
+    },
     
-    local notif = {
-        Title = tostring(title),
-        Text = tostring(text),
-        Duration = duration or 3,
-        Color = color or COLORS.Primary
+    GameSpecific = {
+        [88929752766075] = {  -- Blade Battle
+            ["Blade Battle"] = "https://raw.githubusercontent.com/adubwon/geekUI/main/Games/BladeBattle.lua",
+            ["Blade Battle Alt"] = "https://raw.githubusercontent.com/adubwon/geekUI/main/Games/BladeBattle_Alt.lua"
+        },
+        [109397169461300] = { -- Game Specific
+            ["Game Specific"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/SpecificGame.lua"
+        },
+        [286090429] = {       -- Arsenal
+            ["Arsenal Enhanced"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/ArsenalEnhanced.lua"
+        },
+        [85509428618863] = {  -- WormIO
+            ["WormIO"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/WormIO.lua"
+        },
+        [116610479068550] = { -- Class Clash
+            ["Class Clash"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/ClassClash.lua"
+        },
+        [133614490579000] = { -- Laser A Planet
+            ["Laser A Planet"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/Laser%20A%20Planet.lua"
+        },
+        [8737602449] = {      -- PlsDonate
+            ["PlsDonate"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/PlsDonate.lua"
+        },
+        [3623096087] = {      -- Muscle Legends
+            ["Muscle Legends"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/musclelegends.lua"
+        }
     }
+}
+
+-- Current game scripts
+local CurrentPlaceId = game.PlaceId
+local GameScripts = SCRIPT_DB.GameSpecific[CurrentPlaceId] or {}
+
+--======================================================================--
+-- UI COMPONENTS
+--======================================================================--
+
+local UI = {
+    Main = nil,
+    KeyInput = nil,
+    ScriptSelection = nil,
+    Icon = nil
+}
+
+--======================================================================--
+-- UTILITY FUNCTIONS
+--======================================================================--
+
+local Utilities = {}
+
+-- UI Creation Helpers
+function Utilities.CreateCorner(parent, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 8)
+    corner.Parent = parent
+    return corner
+end
+
+function Utilities.CreateStroke(parent, color, thickness)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color or COLORS.Primary
+    stroke.Thickness = thickness or 1
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = parent
+    return stroke
+end
+
+function Utilities.CreateGlow(parent, color)
+    local glow = Instance.new("ImageLabel")
+    glow.Size = UDim2.new(1, 20, 1, 20)
+    glow.Position = UDim2.new(0, -10, 0, -10)
+    glow.BackgroundTransparency = 1
+    glow.Image = "rbxassetid://4996891970"
+    glow.ImageColor3 = color or COLORS.Primary
+    glow.ImageTransparency = 0.8
+    glow.ZIndex = 0
+    glow.Parent = parent
+    return glow
+end
+
+-- Animation
+function Utilities.Tween(object, properties, duration, style)
+    local tweenInfo = TweenInfo.new(
+        duration or CONFIG.TWEEN_DURATION,
+        style or CONFIG.TWEEN_STYLE
+    )
+    local tween = TweenService:Create(object, tweenInfo, properties)
+    tween:Play()
+    return tween
+end
+
+-- Hover Effects
+function Utilities.ApplyHoverEffect(button, normalColor, hoverColor)
+    button.MouseEnter:Connect(function()
+        Utilities.Tween(button, {BackgroundColor3 = hoverColor})
+    end)
+    button.MouseLeave:Connect(function()
+        Utilities.Tween(button, {BackgroundColor3 = normalColor})
+    end)
+end
+
+--======================================================================--
+-- NOTIFICATION SYSTEM
+--======================================================================--
+
+local Notification = {
+    Queue = {},
+    IsShowing = false
+}
+
+function Notification.Show(title, message, color, duration)
+    if not title or not message then return end
     
-    table.insert(notificationQueue, notif)
+    table.insert(Notification.Queue, {
+        Title = tostring(title),
+        Message = tostring(message),
+        Duration = duration or CONFIG.NOTIFICATION_DURATION,
+        Color = color or COLORS.Primary
+    })
     
-    if not isShowingNotification then
-        processNextNotification()
+    if not Notification.IsShowing then
+        Notification.ProcessNext()
     end
 end
 
-local function processNextNotification()
-    if #notificationQueue == 0 then
-        isShowingNotification = false
+function Notification.ProcessNext()
+    if #Notification.Queue == 0 then
+        Notification.IsShowing = false
         return
     end
     
-    isShowingNotification = true
-    local notif = table.remove(notificationQueue, 1)
+    Notification.IsShowing = true
+    local notif = table.remove(Notification.Queue, 1)
     
     pcall(function()
-        sg:SetCore("SendNotification", {
+        StarterGui:SetCore("SendNotification", {
             Title = notif.Title,
-            Text = notif.Text,
+            Text = notif.Message,
             Duration = notif.Duration,
             Icon = "rbxassetid://90013112630319"
         })
     end)
     
     task.wait(notif.Duration + 0.1)
-    processNextNotification()
+    Notification.ProcessNext()
 end
 
-local function notifySuccess(text, duration)
-    showNotification("✅ Success", text, COLORS.Success, duration)
+function Notification.Success(message, duration)
+    Notification.Show("✅ Success", message, COLORS.Success, duration)
 end
 
-local function notifyError(text, duration)
-    showNotification("❌ Error", text, COLORS.Error, duration)
+function Notification.Error(message, duration)
+    Notification.Show("❌ Error", message, COLORS.Error, duration)
 end
 
-local function notifyInfo(text, duration)
-    showNotification("ℹ️ Info", text, COLORS.Primary, duration)
+function Notification.Info(message, duration)
+    Notification.Show("ℹ️ Info", message, COLORS.Primary, duration)
 end
 
-local function notifyWarning(text, duration)
-    showNotification("⚠️ Warning", text, COLORS.Warning, duration)
+function Notification.Warning(message, duration)
+    Notification.Show("⚠️ Warning", message, COLORS.Warning, duration)
 end
 
---------------------------------------------------
--- UI HELPERS
---------------------------------------------------
+--======================================================================--
+-- STORAGE SYSTEM
+--======================================================================--
 
-local function tween(obj, props, time, style)
-    local tweenInfo = TweenInfo.new(time or 0.3, style or Enum.EasingStyle.Quad)
-    local tweenObj = tw:Create(obj, tweenInfo, props)
-    tweenObj:Play()
-    return tweenObj
-end
+local Storage = {}
 
-local function createCorner(obj, r)
-    local c = Instance.new("UICorner", obj)
-    c.CornerRadius = UDim.new(0, r or 8)
-    return c
-end
-
-local function createStroke(obj, color, thickness)
-    local s = Instance.new("UIStroke", obj)
-    s.Color = color
-    s.Thickness = thickness or 1
-    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    return s
-end
-
-local function createGlow(parent, color)
-    local g = Instance.new("ImageLabel", parent)
-    g.Size = UDim2.new(1, 20, 1, 20)
-    g.Position = UDim2.new(0, -10, 0, -10)
-    g.BackgroundTransparency = 1
-    g.Image = "rbxassetid://4996891970"
-    g.ImageColor3 = color
-    g.ImageTransparency = 0.8
-    g.ZIndex = 0
-    return g
-end
-
-local function hoverEffect(btn, base, hover)
-    btn.MouseEnter:Connect(function()
-        tween(btn, {BackgroundColor3 = hover})
-    end)
-    btn.MouseLeave:Connect(function()
-        tween(btn, {BackgroundColor3 = base})
-    end)
-end
-
---------------------------------------------------
--- FILE HANDLING
---------------------------------------------------
-
-local function saveKeyData(scriptType, scriptName)
-    pcall(function()
-        writefile(KEY_STORAGE_FILE, http:JSONEncode({
+function Storage.SaveKeyData(scriptType, scriptName)
+    local success = pcall(function()
+        local data = {
             key_verified = true,
-            user_id = plr.UserId,
-            saved_key = CORRECT_KEY,
+            user_id = LocalPlayer.UserId,
+            saved_key = CONFIG.CORRECT_KEY,
             last_script_type = scriptType or "universal",
             last_script_name = scriptName or "",
-            saved_at = os.time()
-        }))
+            saved_at = os.time(),
+            place_id = CurrentPlaceId
+        }
+        
+        writefile(CONFIG.KEY_STORAGE_FILE, HttpService:JSONEncode(data))
     end)
+    
+    return success
 end
 
-local function loadKeyData()
-    local success, result = pcall(function()
-        if isfile(KEY_STORAGE_FILE) then
-            local data = http:JSONDecode(readfile(KEY_STORAGE_FILE))
-            if data.key_verified and data.user_id == plr.UserId and data.saved_key == CORRECT_KEY then
-                return data.last_script_type, data.last_script_name
-            end
-        end
-        return nil, nil
+function Storage.LoadKeyData()
+    if not isfile(CONFIG.KEY_STORAGE_FILE) then
+        return nil
+    end
+    
+    local success, data = pcall(function()
+        return HttpService:JSONDecode(readfile(CONFIG.KEY_STORAGE_FILE))
     end)
-    return success and result
+    
+    if not success or not data then
+        return nil
+    end
+    
+    -- Validate stored data
+    if data.key_verified 
+       and data.user_id == LocalPlayer.UserId 
+       and data.saved_key == CONFIG.CORRECT_KEY then
+        return data.last_script_type, data.last_script_name
+    end
+    
+    return nil
 end
 
-local function isKeyVerified()
-    local success, result = pcall(function()
-        if isfile(KEY_STORAGE_FILE) then
-            local data = http:JSONDecode(readfile(KEY_STORAGE_FILE))
-            return data.key_verified and data.user_id == plr.UserId and data.saved_key == CORRECT_KEY
-        end
+function Storage.IsKeyVerified()
+    if not isfile(CONFIG.KEY_STORAGE_FILE) then
         return false
+    end
+    
+    local success, data = pcall(function()
+        return HttpService:JSONDecode(readfile(CONFIG.KEY_STORAGE_FILE))
     end)
-    return success and result
+    
+    if not success or not data then
+        return false
+    end
+    
+    return data.key_verified 
+           and data.user_id == LocalPlayer.UserId 
+           and data.saved_key == CONFIG.CORRECT_KEY
 end
 
---------------------------------------------------
--- CREATE MAIN UI
---------------------------------------------------
+--======================================================================--
+-- SCRIPT LOADER
+--======================================================================--
 
-local mainGui = Instance.new("ScreenGui")
-mainGui.Name = "WarpKeySystem"
-mainGui.ResetOnSpawn = false
-mainGui.Parent = game.CoreGui
+local ScriptLoader = {}
 
-local iconBtn = Instance.new("ImageButton", mainGui)
-iconBtn.Size = UDim2.new(0, 60, 0, 60)
-iconBtn.Position = UDim2.new(0, 20, 0, 20)
-iconBtn.Image = "rbxassetid://90013112630319"
-iconBtn.BackgroundColor3 = COLORS.Background
-iconBtn.AutoButtonColor = false
-iconBtn.BorderSizePixel = 0
-iconBtn.Active = true
-iconBtn.Draggable = true
-createCorner(iconBtn, 12)
-createStroke(iconBtn, COLORS.Primary)
-createGlow(iconBtn, COLORS.Primary)
-
---------------------------------------------------
--- KEY INPUT UI
---------------------------------------------------
-
-local keyFrame = Instance.new("Frame", mainGui)
-keyFrame.Size = UDim2.new(0, 400, 0, 320)
-keyFrame.Position = UDim2.new(0.5, -200, 0.5, -160)
-keyFrame.BackgroundColor3 = COLORS.Background
-keyFrame.Visible = false
-keyFrame.BorderSizePixel = 0
-keyFrame.Active = true
-keyFrame.Draggable = true
-createCorner(keyFrame, 12)
-createStroke(keyFrame, COLORS.Primary)
-createGlow(keyFrame, COLORS.Primary)
-
--- Header
-local keyHeader = Instance.new("Frame", keyFrame)
-keyHeader.Size = UDim2.new(1, 0, 0, 60)
-keyHeader.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-keyHeader.BorderSizePixel = 0
-createCorner(keyHeader, 12)
-
-local keyTitle = Instance.new("TextLabel", keyHeader)
-keyTitle.Size = UDim2.new(1, -40, 0, 30)
-keyTitle.Position = UDim2.new(0, 20, 0, 10)
-keyTitle.Text = "🔑 Warp Key System"
-keyTitle.Font = Enum.Font.GothamBold
-keyTitle.TextSize = 22
-keyTitle.TextColor3 = COLORS.Text
-keyTitle.BackgroundTransparency = 1
-
-local keySubtitle = Instance.new("TextLabel", keyHeader)
-keySubtitle.Size = UDim2.new(1, -40, 0, 20)
-keySubtitle.Position = UDim2.new(0, 20, 0, 35)
-keySubtitle.Text = "Enter your key to access scripts"
-keySubtitle.Font = Enum.Font.Gotham
-keySubtitle.TextSize = 14
-keySubtitle.TextColor3 = COLORS.TextDim
-keySubtitle.BackgroundTransparency = 1
-
--- Input Field
-local inputContainer = Instance.new("Frame", keyFrame)
-inputContainer.Size = UDim2.new(1, -40, 0, 50)
-inputContainer.Position = UDim2.new(0, 20, 0, 80)
-inputContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-inputContainer.BorderSizePixel = 0
-createCorner(inputContainer, 8)
-createStroke(inputContainer, Color3.fromRGB(50, 50, 50))
-
-local keyInput = Instance.new("TextBox", inputContainer)
-keyInput.Size = UDim2.new(1, -20, 1, 0)
-keyInput.Position = UDim2.new(0, 10, 0, 0)
-keyInput.PlaceholderText = "Enter your key here..."
-keyInput.Text = ""
-keyInput.TextColor3 = COLORS.Text
-keyInput.BackgroundTransparency = 1
-keyInput.Font = Enum.Font.Gotham
-keyInput.TextSize = 16
-keyInput.ClearTextOnFocus = false
-
--- Buttons
-local submitBtn = Instance.new("TextButton", keyFrame)
-submitBtn.Size = UDim2.new(1, -40, 0, 45)
-submitBtn.Position = UDim2.new(0, 20, 0, 145)
-submitBtn.Text = "✅ Verify Key"
-submitBtn.Font = Enum.Font.GothamBold
-submitBtn.TextSize = 16
-submitBtn.TextColor3 = COLORS.Text
-submitBtn.BackgroundColor3 = COLORS.Primary
-submitBtn.BorderSizePixel = 0
-createCorner(submitBtn, 8)
-hoverEffect(submitBtn, COLORS.Primary, Color3.fromRGB(0, 180, 255))
-
-local discordBtn = Instance.new("TextButton", keyFrame)
-discordBtn.Size = UDim2.new(1, -40, 0, 45)
-discordBtn.Position = UDim2.new(0, 20, 0, 200)
-discordBtn.Text = "📢 Get Key from Discord"
-discordBtn.Font = Enum.Font.GothamBold
-discordBtn.TextSize = 16
-discordBtn.TextColor3 = COLORS.Text
-discordBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
-discordBtn.BorderSizePixel = 0
-createCorner(discordBtn, 8)
-hoverEffect(discordBtn, Color3.fromRGB(88, 101, 242), Color3.fromRGB(105, 116, 245))
-
-local closeBtn = Instance.new("TextButton", keyFrame)
-closeBtn.Size = UDim2.new(0, 30, 0, 30)
-closeBtn.Position = UDim2.new(1, -40, 0, 15)
-closeBtn.Text = "✕"
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 18
-closeBtn.TextColor3 = COLORS.Text
-closeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-closeBtn.BorderSizePixel = 0
-createCorner(closeBtn, 15)
-hoverEffect(closeBtn, Color3.fromRGB(40, 40, 40), Color3.fromRGB(60, 60, 60))
-
---------------------------------------------------
--- SCRIPT SELECTION UI
---------------------------------------------------
-
-local selectionFrame = Instance.new("Frame", mainGui)
-selectionFrame.Size = UDim2.new(0, 450, 0, 500)
-selectionFrame.Position = UDim2.new(0.5, -225, 0.5, -250)
-selectionFrame.BackgroundColor3 = COLORS.Background
-selectionFrame.Visible = false
-selectionFrame.BorderSizePixel = 0
-selectionFrame.Active = true
-selectionFrame.Draggable = true
-createCorner(selectionFrame, 12)
-createStroke(selectionFrame, COLORS.Primary)
-createGlow(selectionFrame, COLORS.Primary)
-
--- Header
-local selectionHeader = Instance.new("Frame", selectionFrame)
-selectionHeader.Size = UDim2.new(1, 0, 0, 70)
-selectionHeader.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-selectionHeader.BorderSizePixel = 0
-createCorner(selectionHeader, 12)
-
-local selectionTitle = Instance.new("TextLabel", selectionHeader)
-selectionTitle.Size = UDim2.new(1, -40, 0, 30)
-selectionTitle.Position = UDim2.new(0, 20, 0, 10)
-selectionTitle.Text = "🎮 Script Loader"
-selectionTitle.Font = Enum.Font.GothamBold
-selectionTitle.TextSize = 22
-selectionTitle.TextColor3 = COLORS.Text
-selectionTitle.BackgroundTransparency = 1
-
-local selectionSubtitle = Instance.new("TextLabel", selectionHeader)
-selectionSubtitle.Size = UDim2.new(1, -40, 0, 20)
-selectionSubtitle.Position = UDim2.new(0, 20, 0, 40)
-selectionSubtitle.Text = "Select a script to load"
-selectionSubtitle.Font = Enum.Font.Gotham
-selectionSubtitle.TextSize = 14
-selectionSubtitle.TextColor3 = COLORS.TextDim
-selectionSubtitle.BackgroundTransparency = 1
-
-local selectionCloseBtn = Instance.new("TextButton", selectionFrame)
-selectionCloseBtn.Size = UDim2.new(0, 30, 0, 30)
-selectionCloseBtn.Position = UDim2.new(1, -40, 0, 20)
-selectionCloseBtn.Text = "✕"
-selectionCloseBtn.Font = Enum.Font.GothamBold
-selectionCloseBtn.TextSize = 18
-selectionCloseBtn.TextColor3 = COLORS.Text
-selectionCloseBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-selectionCloseBtn.BorderSizePixel = 0
-createCorner(selectionCloseBtn, 15)
-hoverEffect(selectionCloseBtn, Color3.fromRGB(40, 40, 40), Color3.fromRGB(60, 60, 60))
-
--- Tabs Container
-local tabsContainer = Instance.new("Frame", selectionFrame)
-tabsContainer.Size = UDim2.new(1, -40, 0, 40)
-tabsContainer.Position = UDim2.new(0, 20, 0, 80)
-tabsContainer.BackgroundTransparency = 1
-
-local universalTab = Instance.new("TextButton", tabsContainer)
-universalTab.Size = UDim2.new(0.5, -5, 1, 0)
-universalTab.Position = UDim2.new(0, 0, 0, 0)
-universalTab.Text = "🌐 Universal"
-universalTab.Font = Enum.Font.GothamBold
-universalTab.TextSize = 14
-universalTab.TextColor3 = COLORS.Text
-universalTab.BackgroundColor3 = COLORS.Universal
-universalTab.BorderSizePixel = 0
-createCorner(universalTab, 6)
-
-local gameTab = Instance.new("TextButton", tabsContainer)
-gameTab.Size = UDim2.new(0.5, -5, 1, 0)
-gameTab.Position = UDim2.new(0.5, 5, 0, 0)
-gameTab.Text = "🎮 Game Specific"
-gameTab.Font = Enum.Font.GothamBold
-gameTab.TextSize = 14
-gameTab.TextColor3 = COLORS.Text
-gameTab.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-gameTab.BorderSizePixel = 0
-createCorner(gameTab, 6)
-hoverEffect(gameTab, Color3.fromRGB(50, 50, 50), Color3.fromRGB(70, 70, 70))
-
--- Scripts Container
-local scriptsContainer = Instance.new("ScrollingFrame", selectionFrame)
-scriptsContainer.Size = UDim2.new(1, -40, 0, 350)
-scriptsContainer.Position = UDim2.new(0, 20, 0, 130)
-scriptsContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-scriptsContainer.BorderSizePixel = 0
-scriptsContainer.ScrollBarThickness = 4
-scriptsContainer.ScrollBarImageColor3 = COLORS.Primary
-createCorner(scriptsContainer, 8)
-
-local scriptsLayout = Instance.new("UIListLayout", scriptsContainer)
-scriptsLayout.Padding = UDim.new(0, 10)
-scriptsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-local currentTab = "universal"
-
---------------------------------------------------
--- LOAD SCRIPT FUNCTION
---------------------------------------------------
-
-local function loadScript(url, scriptName, scriptType)
-    if not url then
-        notifyError("No script URL provided")
+function ScriptLoader.Load(url, name, type)
+    if not url or url == "" then
+        Notification.Error("No script URL provided")
         return false
     end
     
     local success, result = pcall(function()
-        local scriptContent = game:HttpGet(url, true)
-        loadstring(scriptContent)()
+        local content = game:HttpGet(url, true)
+        loadstring(content)()
     end)
     
     if success then
-        notifySuccess(string.format("'%s' loaded successfully!", scriptName))
-        saveKeyData(scriptType, scriptName)
-        selectionFrame.Visible = false
+        Notification.Success(string.format("'%s' loaded successfully!", name))
+        Storage.SaveKeyData(type, name)
         return true
     else
-        notifyError("Failed to load script: " .. tostring(result))
+        Notification.Error("Failed to load script: " .. tostring(result))
         return false
     end
 end
 
---------------------------------------------------
--- POPULATE SCRIPTS
---------------------------------------------------
+function ScriptLoader.GetScriptsForTab(tabName)
+    if tabName == "universal" then
+        return SCRIPT_DB.Universal
+    else
+        return GameScripts
+    end
+end
 
-local function populateScripts()
-    -- Clear existing scripts
-    for _, child in pairs(scriptsContainer:GetChildren()) do
+--======================================================================--
+-- UI CREATION
+--======================================================================--
+
+local UIBuilder = {}
+
+-- Create Main ScreenGui
+function UIBuilder.CreateMainGUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "WarpKeySystem"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = CoreGui
+    
+    return screenGui
+end
+
+-- Create Icon Button
+function UIBuilder.CreateIcon(parent)
+    local icon = Instance.new("ImageButton")
+    icon.Name = "IconButton"
+    icon.Size = CONFIG.ICON_SIZE
+    icon.Position = UDim2.new(0, 20, 0, 20)
+    icon.Image = "rbxassetid://90013112630319"
+    icon.BackgroundColor3 = COLORS.Background
+    icon.AutoButtonColor = false
+    icon.BorderSizePixel = 0
+    icon.Active = true
+    icon.Draggable = true
+    icon.ZIndex = 100
+    
+    Utilities.CreateCorner(icon, 12)
+    Utilities.CreateStroke(icon, COLORS.Primary)
+    Utilities.CreateGlow(icon, COLORS.Primary)
+    icon.Parent = parent
+    
+    return icon
+end
+
+-- Create Key Input Frame
+function UIBuilder.CreateKeyInputFrame(parent)
+    local frame = Instance.new("Frame")
+    frame.Name = "KeyInputFrame"
+    frame.Size = CONFIG.KEY_FRAME_SIZE
+    frame.Position = UDim2.new(0.5, -200, 0.5, -160)
+    frame.BackgroundColor3 = COLORS.Background
+    frame.Visible = false
+    frame.Active = true
+    frame.Draggable = true
+    frame.ZIndex = 99
+    
+    Utilities.CreateCorner(frame, 12)
+    Utilities.CreateStroke(frame, COLORS.Primary)
+    Utilities.CreateGlow(frame, COLORS.Primary)
+    frame.Parent = parent
+    
+    -- Header
+    local header = Instance.new("Frame")
+    header.Size = UDim2.new(1, 0, 0, 60)
+    header.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    header.BorderSizePixel = 0
+    Utilities.CreateCorner(header, 12)
+    header.Parent = frame
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -40, 0, 30)
+    title.Position = UDim2.new(0, 20, 0, 10)
+    title.Text = "🔑 Warp Key System"
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 22
+    title.TextColor3 = COLORS.Text
+    title.BackgroundTransparency = 1
+    title.Parent = header
+    
+    local subtitle = Instance.new("TextLabel")
+    subtitle.Size = UDim2.new(1, -40, 0, 20)
+    subtitle.Position = UDim2.new(0, 20, 0, 35)
+    subtitle.Text = "Enter your key to access scripts"
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.TextSize = 14
+    subtitle.TextColor3 = COLORS.TextDim
+    subtitle.BackgroundTransparency = 1
+    subtitle.Parent = header
+    
+    -- Input Field
+    local inputContainer = Instance.new("Frame")
+    inputContainer.Size = UDim2.new(1, -40, 0, 50)
+    inputContainer.Position = UDim2.new(0, 20, 0, 80)
+    inputContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    inputContainer.BorderSizePixel = 0
+    Utilities.CreateCorner(inputContainer, 8)
+    Utilities.CreateStroke(inputContainer, Color3.fromRGB(50, 50, 50))
+    inputContainer.Parent = frame
+    
+    local textBox = Instance.new("TextBox")
+    textBox.Name = "KeyInput"
+    textBox.Size = UDim2.new(1, -20, 1, 0)
+    textBox.Position = UDim2.new(0, 10, 0, 0)
+    textBox.PlaceholderText = "Enter your key here..."
+    textBox.Text = ""
+    textBox.TextColor3 = COLORS.Text
+    textBox.BackgroundTransparency = 1
+    textBox.Font = Enum.Font.Gotham
+    textBox.TextSize = 16
+    textBox.ClearTextOnFocus = false
+    textBox.Parent = inputContainer
+    
+    -- Buttons Container
+    local buttonsFrame = Instance.new("Frame")
+    buttonsFrame.Size = UDim2.new(1, -40, 0, 140)
+    buttonsFrame.Position = UDim2.new(0, 20, 0, 145)
+    buttonsFrame.BackgroundTransparency = 1
+    buttonsFrame.Parent = frame
+    
+    local buttonLayout = Instance.new("UIListLayout", buttonsFrame)
+    buttonLayout.Padding = UDim.new(0, 10)
+    buttonLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    -- Submit Button
+    local submitBtn = Instance.new("TextButton")
+    submitBtn.Size = UDim2.new(1, 0, 0, 45)
+    submitBtn.Text = "✅ Verify Key"
+    submitBtn.Font = Enum.Font.GothamBold
+    submitBtn.TextSize = 16
+    submitBtn.TextColor3 = COLORS.Text
+    submitBtn.BackgroundColor3 = COLORS.Primary
+    submitBtn.BorderSizePixel = 0
+    Utilities.CreateCorner(submitBtn, 8)
+    Utilities.ApplyHoverEffect(submitBtn, COLORS.Primary, Color3.fromRGB(0, 180, 255))
+    submitBtn.Parent = buttonsFrame
+    
+    -- Discord Button
+    local discordBtn = Instance.new("TextButton")
+    discordBtn.Size = UDim2.new(1, 0, 0, 45)
+    discordBtn.Text = "📢 Get Key from Discord"
+    discordBtn.Font = Enum.Font.GothamBold
+    discordBtn.TextSize = 16
+    discordBtn.TextColor3 = COLORS.Text
+    discordBtn.BackgroundColor3 = COLORS.Discord
+    discordBtn.BorderSizePixel = 0
+    Utilities.CreateCorner(discordBtn, 8)
+    Utilities.ApplyHoverEffect(discordBtn, COLORS.Discord, Color3.fromRGB(105, 116, 245))
+    discordBtn.Parent = buttonsFrame
+    
+    -- Close Button
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 30, 0, 30)
+    closeBtn.Position = UDim2.new(1, -40, 0, 15)
+    closeBtn.Text = "✕"
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 18
+    closeBtn.TextColor3 = COLORS.Text
+    closeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    closeBtn.BorderSizePixel = 0
+    Utilities.CreateCorner(closeBtn, 15)
+    Utilities.ApplyHoverEffect(closeBtn, Color3.fromRGB(40, 40, 40), Color3.fromRGB(60, 60, 60))
+    closeBtn.Parent = frame
+    
+    return {
+        Frame = frame,
+        Input = textBox,
+        SubmitButton = submitBtn,
+        DiscordButton = discordBtn,
+        CloseButton = closeBtn
+    }
+end
+
+-- Create Script Selection Frame
+function UIBuilder.CreateScriptSelectionFrame(parent)
+    local frame = Instance.new("Frame")
+    frame.Name = "ScriptSelectionFrame"
+    frame.Size = CONFIG.SELECTION_FRAME_SIZE
+    frame.Position = UDim2.new(0.5, -225, 0.5, -250)
+    frame.BackgroundColor3 = COLORS.Background
+    frame.Visible = false
+    frame.Active = true
+    frame.Draggable = true
+    frame.ZIndex = 99
+    
+    Utilities.CreateCorner(frame, 12)
+    Utilities.CreateStroke(frame, COLORS.Primary)
+    Utilities.CreateGlow(frame, COLORS.Primary)
+    frame.Parent = parent
+    
+    -- Header
+    local header = Instance.new("Frame")
+    header.Size = UDim2.new(1, 0, 0, 70)
+    header.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    header.BorderSizePixel = 0
+    Utilities.CreateCorner(header, 12)
+    header.Parent = frame
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -40, 0, 30)
+    title.Position = UDim2.new(0, 20, 0, 10)
+    title.Text = "🎮 Script Loader"
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 22
+    title.TextColor3 = COLORS.Text
+    title.BackgroundTransparency = 1
+    title.Parent = header
+    
+    local subtitle = Instance.new("TextLabel")
+    subtitle.Size = UDim2.new(1, -40, 0, 20)
+    subtitle.Position = UDim2.new(0, 20, 0, 40)
+    subtitle.Text = "Select a script to load"
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.TextSize = 14
+    subtitle.TextColor3 = COLORS.TextDim
+    subtitle.BackgroundTransparency = 1
+    subtitle.Parent = header
+    
+    -- Close Button
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 30, 0, 30)
+    closeBtn.Position = UDim2.new(1, -40, 0, 20)
+    closeBtn.Text = "✕"
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 18
+    closeBtn.TextColor3 = COLORS.Text
+    closeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    closeBtn.BorderSizePixel = 0
+    Utilities.CreateCorner(closeBtn, 15)
+    Utilities.ApplyHoverEffect(closeBtn, Color3.fromRGB(40, 40, 40), Color3.fromRGB(60, 60, 60))
+    closeBtn.Parent = frame
+    
+    -- Tabs
+    local tabsFrame = Instance.new("Frame")
+    tabsFrame.Size = UDim2.new(1, -40, 0, 40)
+    tabsFrame.Position = UDim2.new(0, 20, 0, 80)
+    tabsFrame.BackgroundTransparency = 1
+    tabsFrame.Parent = frame
+    
+    local universalTab = Instance.new("TextButton")
+    universalTab.Size = UDim2.new(0.5, -5, 1, 0)
+    universalTab.Position = UDim2.new(0, 0, 0, 0)
+    universalTab.Text = "🌐 Universal"
+    universalTab.Font = Enum.Font.GothamBold
+    universalTab.TextSize = 14
+    universalTab.TextColor3 = COLORS.Text
+    universalTab.BackgroundColor3 = COLORS.Universal
+    universalTab.BorderSizePixel = 0
+    Utilities.CreateCorner(universalTab, 6)
+    universalTab.Parent = tabsFrame
+    
+    local gameTab = Instance.new("TextButton")
+    gameTab.Size = UDim2.new(0.5, -5, 1, 0)
+    gameTab.Position = UDim2.new(0.5, 5, 0, 0)
+    gameTab.Text = "🎮 Game Specific"
+    gameTab.Font = Enum.Font.GothamBold
+    gameTab.TextSize = 14
+    gameTab.TextColor3 = COLORS.Text
+    gameTab.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    gameTab.BorderSizePixel = 0
+    Utilities.CreateCorner(gameTab, 6)
+    Utilities.ApplyHoverEffect(gameTab, Color3.fromRGB(50, 50, 50), Color3.fromRGB(70, 70, 70))
+    gameTab.Parent = tabsFrame
+    
+    -- Scripts Container
+    local scriptsContainer = Instance.new("ScrollingFrame")
+    scriptsContainer.Size = UDim2.new(1, -40, 0, 350)
+    scriptsContainer.Position = UDim2.new(0, 20, 0, 130)
+    scriptsContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    scriptsContainer.BorderSizePixel = 0
+    scriptsContainer.ScrollBarThickness = 4
+    scriptsContainer.ScrollBarImageColor3 = COLORS.Primary
+    Utilities.CreateCorner(scriptsContainer, 8)
+    scriptsContainer.Parent = frame
+    
+    local layout = Instance.new("UIListLayout", scriptsContainer)
+    layout.Padding = UDim.new(0, 10)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    return {
+        Frame = frame,
+        Tabs = {
+            Universal = universalTab,
+            Game = gameTab
+        },
+        ScriptsContainer = scriptsContainer,
+        CloseButton = closeBtn
+    }
+end
+
+-- Populate Scripts List
+function UIBuilder.PopulateScripts(container, scripts, tabName)
+    -- Clear existing
+    for _, child in ipairs(container:GetChildren()) do
         if child:IsA("TextButton") then
             child:Destroy()
         end
     end
     
-    local scripts = {}
-    
-    if currentTab == "universal" then
-        scripts = UNIVERSAL_SCRIPTS
-    else
-        scripts = GAME_SPECIFIC_SCRIPTS
-    end
-    
+    -- Check if empty
     if next(scripts) == nil then
-        local emptyLabel = Instance.new("TextLabel", scriptsContainer)
+        local emptyLabel = Instance.new("TextLabel")
         emptyLabel.Size = UDim2.new(1, 0, 0, 100)
-        emptyLabel.Text = currentTab == "universal" and "No universal scripts available" or "No game-specific scripts available for this game"
+        emptyLabel.Text = tabName == "universal" 
+            and "No universal scripts available" 
+            or "No game-specific scripts available"
         emptyLabel.Font = Enum.Font.Gotham
         emptyLabel.TextSize = 16
         emptyLabel.TextColor3 = COLORS.TextDim
         emptyLabel.BackgroundTransparency = 1
         emptyLabel.TextWrapped = true
+        emptyLabel.Parent = container
         return
     end
     
-    for scriptName, scriptUrl in pairs(scripts) do
-        local scriptBtn = Instance.new("TextButton", scriptsContainer)
-        scriptBtn.Size = UDim2.new(1, 0, 0, 50)
-        scriptBtn.Text = scriptName
-        scriptBtn.Font = Enum.Font.GothamBold
-        scriptBtn.TextSize = 16
-        scriptBtn.TextColor3 = COLORS.Text
-        scriptBtn.BackgroundColor3 = currentTab == "universal" and Color3.fromRGB(60, 25, 100) or Color3.fromRGB(25, 60, 40)
-        scriptBtn.BorderSizePixel = 0
-        scriptBtn.TextXAlignment = Enum.TextXAlignment.Left
-        scriptBtn.PaddingLeft = UDim.new(0, 15)
-        createCorner(scriptBtn, 6)
+    -- Create script buttons
+    for name, url in pairs(scripts) do
+        local button = Instance.new("TextButton")
+        button.Size = UDim2.new(1, 0, 0, 50)
+        button.Text = name
+        button.Font = Enum.Font.GothamBold
+        button.TextSize = 16
+        button.TextColor3 = COLORS.Text
+        button.BackgroundColor3 = tabName == "universal" 
+            and Color3.fromRGB(60, 25, 100) 
+            or Color3.fromRGB(25, 60, 40)
+        button.BorderSizePixel = 0
+        button.TextXAlignment = Enum.TextXAlignment.Left
+        button.PaddingLeft = UDim.new(0, 15)
+        Utilities.CreateCorner(button, 6)
         
-        local btnColor = currentTab == "universal" and COLORS.Universal or COLORS.Game
-        hoverEffect(scriptBtn, scriptBtn.BackgroundColor3, btnColor)
+        local hoverColor = tabName == "universal" and COLORS.Universal or COLORS.Game
+        Utilities.ApplyHoverEffect(button, button.BackgroundColor3, hoverColor)
         
-        scriptBtn.MouseButton1Click:Connect(function()
-            loadScript(scriptUrl, scriptName, currentTab)
+        button.MouseButton1Click:Connect(function()
+            ScriptLoader.Load(url, name, tabName)
         end)
+        
+        button.Parent = container
     end
     
     -- Update canvas size
-    scriptsContainer.CanvasSize = UDim2.new(0, 0, 0, scriptsLayout.AbsoluteContentSize.Y)
+    container.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
 end
 
---------------------------------------------------
--- TAB HANDLERS
---------------------------------------------------
+--======================================================================--
+-- MAIN APPLICATION
+--======================================================================--
 
-universalTab.MouseButton1Click:Connect(function()
-    currentTab = "universal"
-    universalTab.BackgroundColor3 = COLORS.Universal
-    gameTab.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    populateScripts()
-end)
+local WarpKeySystem = {
+    CurrentTab = "universal",
+    Initialized = false
+}
 
-gameTab.MouseButton1Click:Connect(function()
-    currentTab = "game"
-    gameTab.BackgroundColor3 = COLORS.Game
-    universalTab.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    populateScripts()
-end)
-
---------------------------------------------------
--- BUTTON HANDLERS
---------------------------------------------------
-
-submitBtn.MouseButton1Click:Connect(function()
-    if keyInput.Text == CORRECT_KEY then
-        saveKeyData()
-        notifySuccess("Key verified successfully!")
-        keyFrame.Visible = false
-        
-        -- Show script selection
-        selectionFrame.Visible = true
-        populateScripts()
-    else
-        notifyError("Invalid key! Please check and try again.")
-    end
-end)
-
-discordBtn.MouseButton1Click:Connect(function()
-    if setclipboard then
-        setclipboard(DISCORD_LINK)
-        notifyInfo("Discord link copied to clipboard!")
+function WarpKeySystem.Initialize()
+    if WarpKeySystem.Initialized then
+        return
     end
     
-    pcall(function()
-        if syn and syn.request then
-            syn.request({ Url = DISCORD_LINK, Method = "GET" })
-        elseif request then
-            request({ Url = DISCORD_LINK, Method = "GET" })
-        end
-    end)
-end)
+    -- Create UI
+    UI.Main = UIBuilder.CreateMainGUI()
+    UI.Icon = UIBuilder.CreateIcon(UI.Main)
+    UI.KeyInput = UIBuilder.CreateKeyInputFrame(UI.Main)
+    UI.ScriptSelection = UIBuilder.CreateScriptSelectionFrame(UI.Main)
+    
+    -- Set up event handlers
+    WarpKeySystem.SetupEventHandlers()
+    
+    -- Initialize scripts list
+    WarpKeySystem.UpdateScriptsList()
+    
+    -- Set up input handling
+    WarpKeySystem.SetupInputHandling()
+    
+    WarpKeySystem.Initialized = true
+    Notification.Info("Warp Key System Loaded!", 2)
+end
 
-closeBtn.MouseButton1Click:Connect(function()
-    keyFrame.Visible = false
-end)
-
-selectionCloseBtn.MouseButton1Click:Connect(function()
-    selectionFrame.Visible = false
-end)
-
-iconBtn.MouseButton1Click:Connect(function()
-    if isKeyVerified() then
-        keyFrame.Visible = false
-        selectionFrame.Visible = not selectionFrame.Visible
-        if selectionFrame.Visible then
-            populateScripts()
-        end
-    else
-        keyFrame.Visible = not keyFrame.Visible
-    end
-end)
-
---------------------------------------------------
--- AUTO LOAD SYSTEM
---------------------------------------------------
-
-local function handleAutoLoad()
-    if isKeyVerified() then
-        iconBtn.Visible = true
-        keyFrame.Visible = false
-        
-        -- Try to load last used script
-        local scriptType, scriptName = loadKeyData()
-        
-        if scriptType and scriptName then
-            local scriptUrl = nil
-            
-            if scriptType == "universal" then
-                scriptUrl = UNIVERSAL_SCRIPTS[scriptName]
-            elseif scriptType == "game" then
-                scriptUrl = GAME_SPECIFIC_SCRIPTS[scriptName]
-            end
-            
-            if scriptUrl then
-                task.wait(1) -- Small delay for game to load
-                loadScript(scriptUrl, scriptName, scriptType)
-            else
-                notifyInfo("Welcome back! Select a script to load.")
-                selectionFrame.Visible = true
-                populateScripts()
+function WarpKeySystem.SetupEventHandlers()
+    -- Icon click
+    UI.Icon.MouseButton1Click:Connect(function()
+        if Storage.IsKeyVerified() then
+            UI.KeyInput.Frame.Visible = false
+            UI.ScriptSelection.Frame.Visible = not UI.ScriptSelection.Frame.Visible
+            if UI.ScriptSelection.Frame.Visible then
+                WarpKeySystem.UpdateScriptsList()
             end
         else
-            notifyInfo("Welcome! Select a script to load.")
-            selectionFrame.Visible = true
-            populateScripts()
+            UI.KeyInput.Frame.Visible = not UI.KeyInput.Frame.Visible
+        end
+    end)
+    
+    -- Key verification
+    UI.KeyInput.SubmitButton.MouseButton1Click:Connect(function()
+        local input = UI.KeyInput.Input.Text
+        
+        if input == CONFIG.CORRECT_KEY then
+            Storage.SaveKeyData()
+            Notification.Success("Key verified successfully!")
+            UI.KeyInput.Frame.Visible = false
+            UI.ScriptSelection.Frame.Visible = true
+            WarpKeySystem.UpdateScriptsList()
+        else
+            Notification.Error("Invalid key! Please check and try again.")
+        end
+    end)
+    
+    -- Discord button
+    UI.KeyInput.DiscordButton.MouseButton1Click:Connect(function()
+        if setclipboard then
+            setclipboard(CONFIG.DISCORD_LINK)
+            Notification.Info("Discord link copied to clipboard!")
+        end
+        
+        -- Try to open link
+        pcall(function()
+            if syn and syn.request then
+                syn.request({ Url = CONFIG.DISCORD_LINK, Method = "GET" })
+            elseif request then
+                request({ Url = CONFIG.DISCORD_LINK, Method = "GET" })
+            end
+        end)
+    end)
+    
+    -- Close buttons
+    UI.KeyInput.CloseButton.MouseButton1Click:Connect(function()
+        UI.KeyInput.Frame.Visible = false
+    end)
+    
+    UI.ScriptSelection.CloseButton.MouseButton1Click:Connect(function()
+        UI.ScriptSelection.Frame.Visible = false
+    end)
+    
+    -- Tab switching
+    UI.ScriptSelection.Tabs.Universal.MouseButton1Click:Connect(function()
+        WarpKeySystem.CurrentTab = "universal"
+        UI.ScriptSelection.Tabs.Universal.BackgroundColor3 = COLORS.Universal
+        UI.ScriptSelection.Tabs.Game.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        WarpKeySystem.UpdateScriptsList()
+    end)
+    
+    UI.ScriptSelection.Tabs.Game.MouseButton1Click:Connect(function()
+        WarpKeySystem.CurrentTab = "game"
+        UI.ScriptSelection.Tabs.Game.BackgroundColor3 = COLORS.Game
+        UI.ScriptSelection.Tabs.Universal.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        WarpKeySystem.UpdateScriptsList()
+    end)
+end
+
+function WarpKeySystem.UpdateScriptsList()
+    local scripts = ScriptLoader.GetScriptsForTab(WarpKeySystem.CurrentTab)
+    UIBuilder.PopulateScripts(UI.ScriptSelection.ScriptsContainer, scripts, WarpKeySystem.CurrentTab)
+end
+
+function WarpKeySystem.SetupInputHandling()
+    UserInputService.InputBegan:Connect(function(input, processed)
+        if not processed and input.KeyCode == Enum.KeyCode.Escape then
+            if UI.ScriptSelection.Frame.Visible then
+                UI.ScriptSelection.Frame.Visible = false
+            elseif UI.KeyInput.Frame.Visible then
+                UI.KeyInput.Frame.Visible = false
+            end
+        end
+    end)
+end
+
+function WarpKeySystem.HandleAutoLoad()
+    if Storage.IsKeyVerified() then
+        UI.Icon.Visible = true
+        UI.KeyInput.Frame.Visible = false
+        
+        -- Try to load last used script
+        local scriptType, scriptName = Storage.LoadKeyData()
+        
+        if scriptType and scriptName then
+            local scripts = scriptType == "universal" 
+                and SCRIPT_DB.Universal 
+                or GameScripts
+            
+            local scriptUrl = scripts[scriptName]
+            
+            if scriptUrl then
+                task.wait(1) -- Wait for game to load
+                ScriptLoader.Load(scriptUrl, scriptName, scriptType)
+            else
+                Notification.Info("Welcome back! Select a script to load.")
+                UI.ScriptSelection.Frame.Visible = true
+                WarpKeySystem.UpdateScriptsList()
+            end
+        else
+            Notification.Info("Welcome! Select a script to load.")
+            UI.ScriptSelection.Frame.Visible = true
+            WarpKeySystem.UpdateScriptsList()
         end
     else
-        iconBtn.Visible = true
-        keyFrame.Visible = true
+        UI.Icon.Visible = true
+        UI.KeyInput.Frame.Visible = true
     end
 end
 
---------------------------------------------------
--- INITIALIZE
---------------------------------------------------
+--======================================================================--
+-- INITIALIZATION
+--======================================================================--
 
--- Initial population
-populateScripts()
+-- Initialize the system
+WarpKeySystem.Initialize()
 
--- Handle auto load
+-- Handle auto-load after a short delay
 task.spawn(function()
-    task.wait(1) -- Wait for game to fully load
-    handleAutoLoad()
+    task.wait(1)
+    WarpKeySystem.HandleAutoLoad()
 end)
 
--- Escape key to close UIs
-uis.InputBegan:Connect(function(input, processed)
-    if not processed and input.KeyCode == Enum.KeyCode.Escape then
-        if selectionFrame.Visible then
-            selectionFrame.Visible = false
-        elseif keyFrame.Visible then
-            keyFrame.Visible = false
-        end
-    end
-end)
-
--- Make icon button always on top
-iconBtn.ZIndex = 100
-keyFrame.ZIndex = 99
-selectionFrame.ZIndex = 99
-
-notifyInfo("Warp Key System Loaded!", 2)
+-- Return the system for external access if needed
+return WarpKeySystem
