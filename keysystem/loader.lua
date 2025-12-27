@@ -3,12 +3,13 @@
 local plr = game.Players.LocalPlayer
 local uis = game:GetService("UserInputService")
 local http = game:GetService("HttpService")
+local ts = game:GetService("TextService")
 
 --------------------------------------------------
 -- CONFIG
 --------------------------------------------------
 
-local CORRECT_KEY = "warp"
+local CORRECT_KEY = "warpkey"
 local DISCORD_LINK = "https://discord.gg/warphub"
 
 -- UNIVERSAL SCRIPTS (Available in all games)
@@ -126,6 +127,127 @@ local function isKeyVerified()
 end
 
 --------------------------------------------------
+-- MOBILE INPUT FIX
+--------------------------------------------------
+
+local function showMobileKeyboard(defaultText, callback)
+    -- Create a simple text input GUI for mobile users
+    if game:GetService("UserInputService").TouchEnabled then
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "MobileKeyboardInput"
+        screenGui.DisplayOrder = 999
+        screenGui.ResetOnSpawn = false
+        
+        local background = Instance.new("Frame")
+        background.Size = UDim2.new(1, 0, 1, 0)
+        background.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        background.BackgroundTransparency = 0.5
+        background.Parent = screenGui
+        
+        local inputFrame = Instance.new("Frame")
+        inputFrame.Size = UDim2.new(0.8, 0, 0, 150)
+        inputFrame.Position = UDim2.new(0.1, 0, 0.3, 0)
+        inputFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+        inputFrame.BorderSizePixel = 0
+        inputFrame.Parent = screenGui
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 10)
+        corner.Parent = inputFrame
+        
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, 0, 0, 40)
+        title.Position = UDim2.new(0, 0, 0, 0)
+        title.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        title.BorderSizePixel = 0
+        title.Text = "Enter Key"
+        title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        title.Font = Enum.Font.GothamBold
+        title.TextSize = 18
+        title.Parent = inputFrame
+        
+        local inputBox = Instance.new("TextBox")
+        inputBox.Size = UDim2.new(0.9, 0, 0, 40)
+        inputBox.Position = UDim2.new(0.05, 0, 0.3, 0)
+        inputBox.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+        inputBox.BorderSizePixel = 0
+        inputBox.Text = defaultText or ""
+        inputBox.PlaceholderText = "Enter key here..."
+        inputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        inputBox.Font = Enum.Font.Gotham
+        inputBox.TextSize = 16
+        inputBox.ClearTextOnFocus = false
+        inputBox.Parent = inputFrame
+        
+        local inputCorner = Instance.new("UICorner")
+        inputCorner.CornerRadius = UDim.new(0, 5)
+        inputCorner.Parent = inputBox
+        
+        local buttonContainer = Instance.new("Frame")
+        buttonContainer.Size = UDim2.new(1, 0, 0, 40)
+        buttonContainer.Position = UDim2.new(0, 0, 0.7, 0)
+        buttonContainer.BackgroundTransparency = 1
+        buttonContainer.Parent = inputFrame
+        
+        local cancelButton = Instance.new("TextButton")
+        cancelButton.Size = UDim2.new(0.45, 0, 0.8, 0)
+        cancelButton.Position = UDim2.new(0.025, 0, 0.1, 0)
+        cancelButton.BackgroundColor3 = Color3.fromRGB(100, 30, 30)
+        cancelButton.BorderSizePixel = 0
+        cancelButton.Text = "Cancel"
+        cancelButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        cancelButton.Font = Enum.Font.Gotham
+        cancelButton.TextSize = 16
+        cancelButton.Parent = buttonContainer
+        
+        local cancelCorner = Instance.new("UICorner")
+        cancelCorner.CornerRadius = UDim.new(0, 5)
+        cancelCorner.Parent = cancelButton
+        
+        local submitButton = Instance.new("TextButton")
+        submitButton.Size = UDim2.new(0.45, 0, 0.8, 0)
+        submitButton.Position = UDim2.new(0.525, 0, 0.1, 0)
+        submitButton.BackgroundColor3 = Color3.fromRGB(30, 100, 30)
+        submitButton.BorderSizePixel = 0
+        submitButton.Text = "Submit"
+        submitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        submitButton.Font = Enum.Font.Gotham
+        submitButton.TextSize = 16
+        submitButton.Parent = buttonContainer
+        
+        local submitCorner = Instance.new("UICorner")
+        submitCorner.CornerRadius = UDim.new(0, 5)
+        submitCorner.Parent = submitButton
+        
+        -- Focus the textbox
+        task.wait(0.1)
+        inputBox:CaptureFocus()
+        
+        -- Button events
+        cancelButton.MouseButton1Click:Connect(function()
+            screenGui:Destroy()
+        end)
+        
+        submitButton.MouseButton1Click:Connect(function()
+            local text = inputBox.Text
+            screenGui:Destroy()
+            if callback then
+                callback(text)
+            end
+        end)
+        
+        -- Close on background click
+        background.MouseButton1Click:Connect(function()
+            screenGui:Destroy()
+        end)
+        
+        screenGui.Parent = game.CoreGui
+        
+        return inputBox
+    end
+end
+
+--------------------------------------------------
 -- SCRIPT LOADING FUNCTION
 --------------------------------------------------
 
@@ -224,34 +346,38 @@ local function createScriptSelectionUI()
     
     SettingsTab:AddSection("Key Management")
     
-    local keyInput = SettingsTab:AddTextbox("Key", {
-        Placeholder = "Enter your key here",
-        Default = ""
-    })
-    
-    SettingsTab:AddButton("Verify Key", function()
-        local input = keyInput:Get()
-        if input and input == CORRECT_KEY then
-            saveKeyData()
-            UI.Success("Key Verified", "Key has been verified successfully!")
-            keyInput:Set("")
-            Window:Close()
-            task.wait(0.5)
-            createScriptSelectionUI() -- Reopen with full access
-        else
-            UI.Error("Invalid Key", "Please enter the correct key")
-        end
+    -- Mobile-friendly key input button
+    SettingsTab:AddButton("Enter Key (Mobile Friendly)", function()
+        showMobileKeyboard("", function(inputText)
+            if inputText and inputText == CORRECT_KEY then
+                saveKeyData()
+                UI.Success("Key Verified", "Key has been verified successfully!")
+                if Window then
+                    Window:Close()
+                    task.wait(0.5)
+                    createScriptSelectionUI() -- Reopen with full access
+                end
+            elseif inputText then
+                UI.Error("Invalid Key", "Please enter the correct key")
+            end
+        end)
     end)
     
     SettingsTab:AddButton("Copy Discord Link", function()
+        local success = false
         if setclipboard then
             setclipboard(DISCORD_LINK)
-            UI.Success("Discord Link", "Link copied to clipboard!")
+            success = true
         elseif writeclipboard then
             writeclipboard(DISCORD_LINK)
+            success = true
+        end
+        
+        if success then
             UI.Success("Discord Link", "Link copied to clipboard!")
         else
-            UI.Info("Discord Link", DISCORD_LINK)
+            -- Show the link in a notification for mobile users
+            UI.Info("Discord Link", "Link: " .. DISCORD_LINK)
         end
     end)
     
@@ -287,9 +413,11 @@ local function createScriptSelectionUI()
                 if isfile(filePath) then
                     delfile(filePath)
                     UI.Success("Data Cleared", "All saved data has been cleared")
-                    Window:Close()
-                    task.wait(0.5)
-                    createKeyVerificationUI()
+                    if Window then
+                        Window:Close()
+                        task.wait(0.5)
+                        createKeyVerificationUI()
+                    end
                 end
             end
         end)
@@ -324,12 +452,18 @@ local function createScriptSelectionUI()
     InfoTab:AddLabel(string.format("Total Scripts: %d", universalCount + gameCount))
     
     InfoTab:AddSection("Support")
+    
     InfoTab:AddButton("Copy Discord Link", function()
+        local success = false
         if setclipboard then
             setclipboard(DISCORD_LINK)
-            UI.Success("Discord", "Link copied to clipboard!")
+            success = true
         elseif writeclipboard then
             writeclipboard(DISCORD_LINK)
+            success = true
+        end
+        
+        if success then
             UI.Success("Discord", "Link copied to clipboard!")
         else
             UI.Info("Discord Link", DISCORD_LINK)
@@ -370,7 +504,6 @@ local function createScriptSelectionUI()
     QuickTab:AddSection("Popular Scripts")
     
     -- Add universal scripts as quick buttons
-    local count = 0
     for scriptName, scriptUrl in pairs(UNIVERSAL_SCRIPTS) do
         QuickTab:AddButton(scriptName, function()
             loadScript(scriptUrl, scriptName, "universal")
@@ -391,25 +524,27 @@ local function createScriptSelectionUI()
         end
     end)
     
-    -- Bind UI toggle to RightControl
-    uis.InputBegan:Connect(function(input, processed)
-        if not processed and input.KeyCode == Enum.KeyCode.RightControl then
-            if Window then
-                Window:Toggle()
+    -- Bind UI toggle to RightControl (desktop only)
+    if not uis.TouchEnabled then
+        uis.InputBegan:Connect(function(input, processed)
+            if not processed and input.KeyCode == Enum.KeyCode.RightControl then
+                if Window then
+                    Window:Toggle()
+                end
             end
-        end
-    end)
+        end)
+    end
 end
 
 --------------------------------------------------
--- CREATE KEY VERIFICATION UI
+-- CREATE KEY VERIFICATION UI (MOBILE FRIENDLY)
 --------------------------------------------------
 
 local function createKeyVerificationUI()
     Window = UI.New({
         Title = "Warp Key System",
         Theme = "Midnight",
-        Size = UDim2.new(0, 500, 0, 400),
+        Size = UDim2.new(0, 500, 0, 450),
         ShowUserInfo = true,
         ShowActiveList = false,
         AutoHide = false
@@ -423,23 +558,21 @@ local function createKeyVerificationUI()
     MainTab:AddLabel("Please enter your key to access the scripts.")
     MainTab:AddLabel("")
     
-    local keyInput = MainTab:AddTextbox("Enter Key", {
-        Placeholder = "Paste your key here",
-        Default = ""
-    })
-    
-    MainTab:AddButton("Verify Key", function()
-        local enteredKey = keyInput:Get()
-        if enteredKey and enteredKey == CORRECT_KEY then
-            saveKeyData()
-            UI.Success("Access Granted", "Key verified successfully!")
-            Window:Close()
-            task.wait(0.5)
-            createScriptSelectionUI() -- Open main UI
-        else
-            UI.Error("Invalid Key", "Please check your key and try again")
-            keyInput:Set("")
-        end
+    -- Mobile-friendly key input button
+    MainTab:AddButton("Enter Key (Click Here)", function()
+        showMobileKeyboard("", function(enteredKey)
+            if enteredKey and enteredKey == CORRECT_KEY then
+                saveKeyData()
+                UI.Success("Access Granted", "Key verified successfully!")
+                if Window then
+                    Window:Close()
+                    task.wait(0.5)
+                    createScriptSelectionUI() -- Open main UI
+                end
+            elseif enteredKey then
+                UI.Error("Invalid Key", "Please check your key and try again")
+            end
+        end)
     end)
     
     MainTab:AddSection("Get Your Key")
@@ -447,29 +580,53 @@ local function createKeyVerificationUI()
     MainTab:AddLabel("Don't have a key? Join our Discord!")
     
     MainTab:AddButton("Copy Discord Link", function()
+        local success = false
         if setclipboard then
             setclipboard(DISCORD_LINK)
-            UI.Success("Discord Link", "Link copied to clipboard!")
+            success = true
         elseif writeclipboard then
             writeclipboard(DISCORD_LINK)
+            success = true
+        end
+        
+        if success then
             UI.Success("Discord Link", "Link copied to clipboard!")
         else
-            UI.Info("Discord Link", DISCORD_LINK)
+            -- Show the link in a notification for mobile users
+            UI.Info("Discord Link", "Link: " .. DISCORD_LINK)
         end
     end)
     
-    MainTab:AddButton("Open Discord", function()
+    MainTab:AddButton("Open Discord (Mobile)", function()
         pcall(function()
-            local requestFunc = syn and syn.request or request
+            local requestFunc = syn and syn.request or request or http_request
             if requestFunc then
                 requestFunc({
                     Url = DISCORD_LINK,
                     Method = "GET"
                 })
+                UI.Info("Discord", "Attempting to open Discord...")
+            else
+                UI.Info("Discord Link", DISCORD_LINK)
             end
         end)
-        UI.Info("Discord", "Attempting to open Discord...")
     end)
+    
+    MainTab:AddSection("Instructions")
+    
+    if uis.TouchEnabled then
+        MainTab:AddLabel("📱 Mobile Instructions:")
+        MainTab:AddLabel("1. Click 'Enter Key' button")
+        MainTab:AddLabel("2. Type your key in the popup")
+        MainTab:AddLabel("3. Click 'Submit'")
+        MainTab:AddLabel("")
+    else
+        MainTab:AddLabel("🖥️ Desktop Instructions:")
+        MainTab:AddLabel("1. Click 'Enter Key' button")
+        MainTab:AddLabel("2. Type your key in the popup")
+        MainTab:AddLabel("3. Click 'Submit' or press Enter")
+        MainTab:AddLabel("")
+    end
     
     MainTab:AddSection("Info")
     MainTab:AddLabel("Place ID: " .. tostring(CURRENT_PLACE_ID))
@@ -483,14 +640,116 @@ local function createKeyVerificationUI()
     MainTab:AddLabel(string.format("Universal Scripts: %d", universalCount))
     MainTab:AddLabel(string.format("Game Scripts: %d", gameCount))
     
-    -- Bind escape to close
-    uis.InputBegan:Connect(function(input, processed)
-        if not processed and input.KeyCode == Enum.KeyCode.RightControl then
+    -- Bind toggle for mobile (tap icon instead of keyboard)
+    if not uis.TouchEnabled then
+        uis.InputBegan:Connect(function(input, processed)
+            if not processed and input.KeyCode == Enum.KeyCode.RightControl then
+                if Window then
+                    Window:Toggle()
+                end
+            end
+        end)
+    end
+end
+
+--------------------------------------------------
+-- CREATE FLOATING ICON (MOBILE FRIENDLY)
+--------------------------------------------------
+
+local function createFloatingIcon()
+    if pcall(function() return game.CoreGui end) then
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "WarpHubIcon"
+        gui.ResetOnSpawn = false
+        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        
+        local icon = Instance.new("ImageButton")
+        icon.Size = UDim2.new(0, 60, 0, 60)
+        icon.Position = UDim2.new(0, 20, 0, 20)
+        icon.Image = "rbxassetid://90013112630319"
+        icon.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+        icon.AutoButtonColor = false
+        icon.BorderSizePixel = 0
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 12)
+        corner.Parent = icon
+        
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(0, 150, 255)
+        stroke.Thickness = 3
+        stroke.Parent = icon
+        
+        -- Add a pulsing effect for visibility
+        local pulse = Instance.new("UIScale")
+        pulse.Parent = icon
+        
+        local pulseTween = nil
+        local function startPulse()
+            if pulseTween then pulseTween:Cancel() end
+            pulseTween = game:GetService("TweenService"):Create(pulse, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, true), {
+                Scale = 1.1
+            })
+            pulseTween:Play()
+        end
+        
+        local function stopPulse()
+            if pulseTween then
+                pulseTween:Cancel()
+            end
+            pulse.Scale = 1
+        end
+        
+        icon.MouseEnter:Connect(stopPulse)
+        icon.MouseLeave:Connect(startPulse)
+        
+        -- Start pulsing initially
+        startPulse()
+        
+        icon.Parent = gui
+        gui.Parent = game.CoreGui
+        
+        icon.MouseButton1Click:Connect(function()
             if Window then
                 Window:Toggle()
             end
-        end
-    end)
+        end)
+        
+        -- Make icon draggable (works on both mobile and desktop)
+        local dragging = false
+        local dragInput, dragStart, startPos
+        
+        icon.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = true
+                dragStart = input.Position
+                startPos = icon.Position
+                stopPulse()
+                
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                        startPulse()
+                    end
+                end)
+            end
+        end)
+        
+        icon.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+                dragInput = input
+            end
+        end)
+        
+        uis.InputChanged:Connect(function(input)
+            if input == dragInput and dragging then
+                local delta = input.Position - dragStart
+                icon.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+        
+        return gui
+    end
 end
 
 --------------------------------------------------
@@ -532,69 +791,8 @@ local function initialize()
         UI.Info("Key Required", "Please verify your key to continue")
     end
     
-    -- Add icon to screen if supported
-    if pcall(function() return game.CoreGui end) then
-        local gui = Instance.new("ScreenGui")
-        gui.Name = "WarpHubIcon"
-        gui.ResetOnSpawn = false
-        
-        local icon = Instance.new("ImageButton")
-        icon.Size = UDim2.new(0, 50, 0, 50)
-        icon.Position = UDim2.new(0, 20, 0, 20)
-        icon.Image = "rbxassetid://90013112630319"
-        icon.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-        icon.AutoButtonColor = false
-        icon.BorderSizePixel = 0
-        
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 10)
-        corner.Parent = icon
-        
-        local stroke = Instance.new("UIStroke")
-        stroke.Color = Color3.fromRGB(0, 150, 255)
-        stroke.Thickness = 2
-        stroke.Parent = icon
-        
-        icon.Parent = gui
-        gui.Parent = game.CoreGui
-        
-        icon.MouseButton1Click:Connect(function()
-            if Window then
-                Window:Toggle()
-            end
-        end)
-        
-        -- Make icon draggable
-        local dragging = false
-        local dragInput, dragStart, startPos
-        
-        icon.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = true
-                dragStart = input.Position
-                startPos = icon.Position
-                
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        dragging = false
-                    end
-                end)
-            end
-        end)
-        
-        icon.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement then
-                dragInput = input
-            end
-        end)
-        
-        uis.InputChanged:Connect(function(input)
-            if input == dragInput and dragging then
-                local delta = input.Position - dragStart
-                icon.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end
-        end)
-    end
+    -- Create floating icon
+    createFloatingIcon()
 end
 
 --------------------------------------------------
