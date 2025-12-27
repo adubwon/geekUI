@@ -26,6 +26,7 @@ local GAME_SCRIPTS = {
     [292439477] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua",
     [17625359962] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua",
     [3623096087] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/musclelegends.lua",
+    [] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/privateserver.lua",
 }
 
 local CURRENT_PLACE_ID = game.PlaceId
