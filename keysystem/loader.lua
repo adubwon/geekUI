@@ -10,7 +10,7 @@ local http = game:GetService("HttpService")
 -- CONFIG
 --------------------------------------------------
 
-local CORRECT_KEY = "warpkey"
+local CORRECT_KEY = "warp"
 local DISCORD_LINK = "https://discord.gg/warphub"
 
 -- SUPPORTED GAMES
