@@ -57,7 +57,6 @@ local KEY_STORAGE_FILE = "Warp_KeyData.json"
 
 local UI = loadstring(game:HttpGet("https://xan.bar/init.lua"))()
 local Window = nil
-local MainTab = nil
 
 --------------------------------------------------
 -- FILE HANDLING
@@ -65,7 +64,16 @@ local MainTab = nil
 
 local function saveKeyData(scriptType, scriptName)
     pcall(function()
-        writefile(KEY_STORAGE_FILE, http:JSONEncode({
+        if not isfolder then 
+            return -- Some executors don't support isfolder
+        end
+        
+        if not isfolder("WarpHub") then
+            makefolder("WarpHub")
+        end
+        
+        local filePath = "WarpHub/" .. KEY_STORAGE_FILE
+        writefile(filePath, http:JSONEncode({
             key_verified = true,
             user_id = plr.UserId,
             saved_key = CORRECT_KEY,
@@ -78,9 +86,20 @@ local function saveKeyData(scriptType, scriptName)
 end
 
 local function loadKeyData()
+    if not isfolder or not isfile then 
+        return nil, nil -- Some executors don't support these functions
+    end
+    
+    pcall(function()
+        if not isfolder("WarpHub") then
+            makefolder("WarpHub")
+        end
+    end)
+    
+    local filePath = "WarpHub/" .. KEY_STORAGE_FILE
     local success, result = pcall(function()
-        if isfile(KEY_STORAGE_FILE) then
-            local data = http:JSONDecode(readfile(KEY_STORAGE_FILE))
+        if isfile(filePath) then
+            local data = http:JSONDecode(readfile(filePath))
             if data.key_verified and data.user_id == plr.UserId and data.saved_key == CORRECT_KEY then
                 return data.last_script_type, data.last_script_name
             end
@@ -91,9 +110,14 @@ local function loadKeyData()
 end
 
 local function isKeyVerified()
+    if not isfolder or not isfile then 
+        return false
+    end
+    
+    local filePath = "WarpHub/" .. KEY_STORAGE_FILE
     local success, result = pcall(function()
-        if isfile(KEY_STORAGE_FILE) then
-            local data = http:JSONDecode(readfile(KEY_STORAGE_FILE))
+        if isfile(filePath) then
+            local data = http:JSONDecode(readfile(filePath))
             return data.key_verified and data.user_id == plr.UserId and data.saved_key == CORRECT_KEY
         end
         return false
@@ -158,7 +182,12 @@ local function createScriptSelectionUI()
     if next(GAME_SPECIFIC_SCRIPTS) ~= nil then
         local GameTab = Window:AddTab("Game Specific", UI.Icons.Gamepad)
         
-        GameTab:AddSection(string.format("Scripts for %s", game:GetService("MarketplaceService"):GetProductInfo(CURRENT_PLACE_ID).Name))
+        local gameName = "Unknown Game"
+        pcall(function()
+            gameName = game:GetService("MarketplaceService"):GetProductInfo(CURRENT_PLACE_ID).Name
+        end)
+        
+        GameTab:AddSection(string.format("Scripts for %s", gameName))
         
         for scriptName, scriptUrl in pairs(GAME_SPECIFIC_SCRIPTS) do
             GameTab:AddButton(scriptName, function()
@@ -174,8 +203,13 @@ local function createScriptSelectionUI()
             lastGameScript = scriptName
         end
         
+        local gameScriptNames = {"None"}
+        for name, _ in pairs(GAME_SPECIFIC_SCRIPTS) do
+            table.insert(gameScriptNames, name)
+        end
+        
         GameTab:AddDropdown("Auto Load", {
-            Options = {"None", unpack(GameTab:GetButtonNames())},
+            Options = gameScriptNames,
             Default = lastGameScript or "None"
         }, function(selected)
             if selected ~= "None" then
@@ -196,21 +230,28 @@ local function createScriptSelectionUI()
     })
     
     SettingsTab:AddButton("Verify Key", function()
-        if keyInput:Get() == CORRECT_KEY then
+        local input = keyInput:Get()
+        if input and input == CORRECT_KEY then
             saveKeyData()
             UI.Success("Key Verified", "Key has been verified successfully!")
             keyInput:Set("")
             Window:Close()
+            task.wait(0.5)
             createScriptSelectionUI() -- Reopen with full access
         else
             UI.Error("Invalid Key", "Please enter the correct key")
         end
     end)
     
-    SettingsTab:AddButton("Get Key from Discord", function()
+    SettingsTab:AddButton("Copy Discord Link", function()
         if setclipboard then
             setclipboard(DISCORD_LINK)
-            UI.Info("Discord Link", "Link copied to clipboard!")
+            UI.Success("Discord Link", "Link copied to clipboard!")
+        elseif writeclipboard then
+            writeclipboard(DISCORD_LINK)
+            UI.Success("Discord Link", "Link copied to clipboard!")
+        else
+            UI.Info("Discord Link", DISCORD_LINK)
         end
     end)
     
@@ -222,8 +263,13 @@ local function createScriptSelectionUI()
         lastUniversalScript = scriptName
     end
     
+    local universalScriptNames = {"None"}
+    for name, _ in pairs(UNIVERSAL_SCRIPTS) do
+        table.insert(universalScriptNames, name)
+    end
+    
     SettingsTab:AddDropdown("Universal Auto Load", {
-        Options = {"None", unpack(UniversalTab:GetButtonNames())},
+        Options = universalScriptNames,
         Default = lastUniversalScript or "None"
     }, function(selected)
         if selected ~= "None" then
@@ -236,21 +282,17 @@ local function createScriptSelectionUI()
     
     SettingsTab:AddButton("Clear Saved Data", function()
         pcall(function()
-            if isfile(KEY_STORAGE_FILE) then
-                delfile(KEY_STORAGE_FILE)
-                UI.Info("Data Cleared", "All saved data has been cleared")
-                Window:Close()
-                task.wait(0.5)
-                createScriptSelectionUI()
+            if isfolder and isfile then
+                local filePath = "WarpHub/" .. KEY_STORAGE_FILE
+                if isfile(filePath) then
+                    delfile(filePath)
+                    UI.Success("Data Cleared", "All saved data has been cleared")
+                    Window:Close()
+                    task.wait(0.5)
+                    createKeyVerificationUI()
+                end
             end
         end)
-    end)
-    
-    SettingsTab:AddButton("Copy Discord", function()
-        if setclipboard then
-            setclipboard(DISCORD_LINK)
-            UI.Info("Copied", "Discord link copied to clipboard!")
-        end
     end)
     
     -- Info Tab
@@ -259,7 +301,13 @@ local function createScriptSelectionUI()
     InfoTab:AddSection("Warp Script Hub")
     
     InfoTab:AddLabel("Version: 2.0.0")
-    InfoTab:AddLabel(string.format("Game: %s", game:GetService("MarketplaceService"):GetProductInfo(CURRENT_PLACE_ID).Name))
+    
+    local gameName = "Unknown Game"
+    pcall(function()
+        gameName = game:GetService("MarketplaceService"):GetProductInfo(CURRENT_PLACE_ID).Name
+    end)
+    
+    InfoTab:AddLabel(string.format("Game: %s", gameName))
     InfoTab:AddLabel(string.format("Place ID: %d", CURRENT_PLACE_ID))
     InfoTab:AddLabel(string.format("User: %s", plr.Name))
     
@@ -276,10 +324,15 @@ local function createScriptSelectionUI()
     InfoTab:AddLabel(string.format("Total Scripts: %d", universalCount + gameCount))
     
     InfoTab:AddSection("Support")
-    InfoTab:AddButton("Join Discord", function()
+    InfoTab:AddButton("Copy Discord Link", function()
         if setclipboard then
             setclipboard(DISCORD_LINK)
-            UI.Info("Discord", "Link copied to clipboard!")
+            UI.Success("Discord", "Link copied to clipboard!")
+        elseif writeclipboard then
+            writeclipboard(DISCORD_LINK)
+            UI.Success("Discord", "Link copied to clipboard!")
+        else
+            UI.Info("Discord Link", DISCORD_LINK)
         end
     end)
     
@@ -287,75 +340,63 @@ local function createScriptSelectionUI()
         UI.Info("Report Issue", "Please report issues in our Discord server")
     end)
     
-    -- Auto load feature
-    local autoLoadToggle = SettingsTab:AddToggle("Auto Load Last Script", { Default = true })
-    
     -- Quick Load Section
-    if next(GAME_SPECIFIC_SCRIPTS) ~= nil then
-        local QuickTab = Window:AddTab("Quick Load", UI.Icons.Bolt)
-        
-        QuickTab:AddSection("One-Click Load")
-        
-        local scriptType, scriptName = loadKeyData()
-        local lastScriptName = nil
-        
-        if scriptType == "universal" and UNIVERSAL_SCRIPTS[scriptName] then
-            lastScriptName = scriptName
-        elseif scriptType == "game" and GAME_SPECIFIC_SCRIPTS[scriptName] then
-            lastScriptName = scriptName
-        end
-        
-        if lastScriptName then
-            QuickTab:AddButton(string.format("Load Last: %s", lastScriptName), function()
-                local scriptUrl = nil
-                if UNIVERSAL_SCRIPTS[lastScriptName] then
-                    scriptUrl = UNIVERSAL_SCRIPTS[lastScriptName]
-                    loadScript(scriptUrl, lastScriptName, "universal")
-                elseif GAME_SPECIFIC_SCRIPTS[lastScriptName] then
-                    scriptUrl = GAME_SPECIFIC_SCRIPTS[lastScriptName]
-                    loadScript(scriptUrl, lastScriptName, "game")
-                end
-            end)
-        end
-        
-        QuickTab:AddSection("Popular Scripts")
-        
-        -- Add first 3 universal scripts as quick buttons
-        local count = 0
-        for scriptName, scriptUrl in pairs(UNIVERSAL_SCRIPTS) do
-            if count < 3 then
-                QuickTab:AddButton(scriptName, function()
-                    loadScript(scriptUrl, scriptName, "universal")
-                end)
-                count = count + 1
-            else
-                break
+    local QuickTab = Window:AddTab("Quick Load", UI.Icons.Bolt)
+    
+    QuickTab:AddSection("One-Click Load")
+    
+    local scriptType, scriptName = loadKeyData()
+    local lastScriptName = nil
+    
+    if scriptType == "universal" and UNIVERSAL_SCRIPTS[scriptName] then
+        lastScriptName = scriptName
+    elseif scriptType == "game" and GAME_SPECIFIC_SCRIPTS[scriptName] then
+        lastScriptName = scriptName
+    end
+    
+    if lastScriptName then
+        QuickTab:AddButton(string.format("Load Last: %s", lastScriptName), function()
+            local scriptUrl = nil
+            if UNIVERSAL_SCRIPTS[lastScriptName] then
+                scriptUrl = UNIVERSAL_SCRIPTS[lastScriptName]
+                loadScript(scriptUrl, lastScriptName, "universal")
+            elseif GAME_SPECIFIC_SCRIPTS[lastScriptName] then
+                scriptUrl = GAME_SPECIFIC_SCRIPTS[lastScriptName]
+                loadScript(scriptUrl, lastScriptName, "game")
             end
-        end
-        
-        -- Add first 3 game scripts as quick buttons
-        count = 0
-        for scriptName, scriptUrl in pairs(GAME_SPECIFIC_SCRIPTS) do
-            if count < 3 then
-                QuickTab:AddButton(scriptName, function()
-                    loadScript(scriptUrl, scriptName, "game")
-                end)
-                count = count + 1
-            else
-                break
-            end
-        end
+        end)
+    end
+    
+    QuickTab:AddSection("Popular Scripts")
+    
+    -- Add universal scripts as quick buttons
+    local count = 0
+    for scriptName, scriptUrl in pairs(UNIVERSAL_SCRIPTS) do
+        QuickTab:AddButton(scriptName, function()
+            loadScript(scriptUrl, scriptName, "universal")
+        end)
+    end
+    
+    -- Add game scripts as quick buttons
+    for scriptName, scriptUrl in pairs(GAME_SPECIFIC_SCRIPTS) do
+        QuickTab:AddButton(scriptName, function()
+            loadScript(scriptUrl, scriptName, "game")
+        end)
     end
     
     -- Add toggle for UI
     SettingsTab:AddButton("Toggle UI Visibility", function()
-        Window:Toggle()
+        if Window then
+            Window:Toggle()
+        end
     end)
     
     -- Bind UI toggle to RightControl
     uis.InputBegan:Connect(function(input, processed)
         if not processed and input.KeyCode == Enum.KeyCode.RightControl then
-            Window:Toggle()
+            if Window then
+                Window:Toggle()
+            end
         end
     end)
 end
@@ -389,10 +430,11 @@ local function createKeyVerificationUI()
     
     MainTab:AddButton("Verify Key", function()
         local enteredKey = keyInput:Get()
-        if enteredKey == CORRECT_KEY then
+        if enteredKey and enteredKey == CORRECT_KEY then
             saveKeyData()
             UI.Success("Access Granted", "Key verified successfully!")
             Window:Close()
+            task.wait(0.5)
             createScriptSelectionUI() -- Open main UI
         else
             UI.Error("Invalid Key", "Please check your key and try again")
@@ -407,16 +449,23 @@ local function createKeyVerificationUI()
     MainTab:AddButton("Copy Discord Link", function()
         if setclipboard then
             setclipboard(DISCORD_LINK)
-            UI.Info("Discord Link", "Link copied to clipboard!")
+            UI.Success("Discord Link", "Link copied to clipboard!")
+        elseif writeclipboard then
+            writeclipboard(DISCORD_LINK)
+            UI.Success("Discord Link", "Link copied to clipboard!")
+        else
+            UI.Info("Discord Link", DISCORD_LINK)
         end
     end)
     
     MainTab:AddButton("Open Discord", function()
         pcall(function()
-            if syn and syn.request then
-                syn.request({ Url = DISCORD_LINK, Method = "GET" })
-            elseif request then
-                request({ Url = DISCORD_LINK, Method = "GET" })
+            local requestFunc = syn and syn.request or request
+            if requestFunc then
+                requestFunc({
+                    Url = DISCORD_LINK,
+                    Method = "GET"
+                })
             end
         end)
         UI.Info("Discord", "Attempting to open Discord...")
@@ -424,13 +473,22 @@ local function createKeyVerificationUI()
     
     MainTab:AddSection("Info")
     MainTab:AddLabel("Place ID: " .. tostring(CURRENT_PLACE_ID))
-    MainTab:AddLabel(string.format("Universal Scripts: %d", #UNIVERSAL_SCRIPTS))
-    MainTab:AddLabel(string.format("Game Scripts: %d", #GAME_SPECIFIC_SCRIPTS))
+    
+    local universalCount = 0
+    for _ in pairs(UNIVERSAL_SCRIPTS) do universalCount = universalCount + 1 end
+    
+    local gameCount = 0
+    for _ in pairs(GAME_SPECIFIC_SCRIPTS) do gameCount = gameCount + 1 end
+    
+    MainTab:AddLabel(string.format("Universal Scripts: %d", universalCount))
+    MainTab:AddLabel(string.format("Game Scripts: %d", gameCount))
     
     -- Bind escape to close
     uis.InputBegan:Connect(function(input, processed)
         if not processed and input.KeyCode == Enum.KeyCode.RightControl then
-            Window:Toggle()
+            if Window then
+                Window:Toggle()
+            end
         end
     end)
 end
@@ -474,62 +532,69 @@ local function initialize()
         UI.Info("Key Required", "Please verify your key to continue")
     end
     
-    -- Add icon to screen
-    local gui = Instance.new("ScreenGui", game.CoreGui)
-    gui.Name = "WarpHubIcon"
-    gui.ResetOnSpawn = false
-    
-    local icon = Instance.new("ImageButton", gui)
-    icon.Size = UDim2.new(0, 50, 0, 50)
-    icon.Position = UDim2.new(0, 20, 0, 20)
-    icon.Image = "rbxassetid://90013112630319"
-    icon.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    icon.AutoButtonColor = false
-    icon.BorderSizePixel = 0
-    
-    local corner = Instance.new("UICorner", icon)
-    corner.CornerRadius = UDim.new(0, 10)
-    
-    local stroke = Instance.new("UIStroke", icon)
-    stroke.Color = Color3.fromRGB(0, 150, 255)
-    stroke.Thickness = 2
-    
-    icon.MouseButton1Click:Connect(function()
-        if Window then
-            Window:Toggle()
-        end
-    end)
-    
-    -- Make icon draggable
-    local dragging = false
-    local dragInput, dragStart, startPos
-    
-    icon.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = icon.Position
-            
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-    
-    icon.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            dragInput = input
-        end
-    end)
-    
-    game:GetService("UserInputService").InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - dragStart
-            icon.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
+    -- Add icon to screen if supported
+    if pcall(function() return game.CoreGui end) then
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "WarpHubIcon"
+        gui.ResetOnSpawn = false
+        
+        local icon = Instance.new("ImageButton")
+        icon.Size = UDim2.new(0, 50, 0, 50)
+        icon.Position = UDim2.new(0, 20, 0, 20)
+        icon.Image = "rbxassetid://90013112630319"
+        icon.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+        icon.AutoButtonColor = false
+        icon.BorderSizePixel = 0
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 10)
+        corner.Parent = icon
+        
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(0, 150, 255)
+        stroke.Thickness = 2
+        stroke.Parent = icon
+        
+        icon.Parent = gui
+        gui.Parent = game.CoreGui
+        
+        icon.MouseButton1Click:Connect(function()
+            if Window then
+                Window:Toggle()
+            end
+        end)
+        
+        -- Make icon draggable
+        local dragging = false
+        local dragInput, dragStart, startPos
+        
+        icon.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = true
+                dragStart = input.Position
+                startPos = icon.Position
+                
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
+            end
+        end)
+        
+        icon.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                dragInput = input
+            end
+        end)
+        
+        uis.InputChanged:Connect(function(input)
+            if input == dragInput and dragging then
+                local delta = input.Position - dragStart
+                icon.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+    end
 end
 
 --------------------------------------------------
