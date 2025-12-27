@@ -11,7 +11,7 @@ local http = game:GetService("HttpService")
 --------------------------------------------------
 
 local CORRECT_KEY = "sigmawarp"
-local DISCORD_LINK = "https://discord.gg/suffocated"
+local DISCORD_LINK = "https://discord.gg/warphub"
 
 -- SUPPORTED GAMES
 local GAME_SCRIPTS = {
