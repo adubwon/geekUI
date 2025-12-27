@@ -1,4 +1,4 @@
--- Warp Key System - UPDATED WITH GAME CHECK
+-- Warp Key System - FIXED WITH PROPER SCRIPT SELECTION UI
 
 local plr = game.Players.LocalPlayer
 local uis = game:GetService("UserInputService")
@@ -13,24 +13,49 @@ local http = game:GetService("HttpService")
 local CORRECT_KEY = "warpkey"
 local DISCORD_LINK = "https://discord.gg/warphub"
 
--- SUPPORTED GAMES
+-- SUPPORTED GAMES WITH MULTIPLE OPTIONS FOR SAME PLACE ID
 local GAME_SCRIPTS = {
-    [88929752766075] = "https://raw.githubusercontent.com/adubwon/geekUI/main/Games/BladeBattle.lua",
-    [109397169461300] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua",
-    [286090429] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua",
-    [2788229376] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua",
-    [85509428618863] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/WormIO.lua",
-    [116610479068550] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/ClassClash.lua",
-    [133614490579000] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/Laser%20A%20Planet.lua",
-    [8737602449] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/PlsDonate.lua",
-    [292439477] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua",
-    [17625359962] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua",
-    [3623096087] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/musclelegends.lua",
-    [] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/privateserver.lua",
+    -- Format: [PlaceId] = {ScriptName = "URL", ScriptName2 = "URL2", ...}
+    [88929752766075] = {
+        ["Blade Battle"] = "https://raw.githubusercontent.com/adubwon/geekUI/main/Games/BladeBattle.lua",
+        ["Blade Battle Alt"] = "https://raw.githubusercontent.com/adubwon/geekUI/main/Games/BladeBattle_Alt.lua"
+    },
+    [109397169461300] = {
+        ["Universal Warp"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua"
+    },
+    [286090429] = {
+        ["Universal Warp"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua",
+        ["Arsenal Enhanced"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/ArsenalEnhanced.lua"
+    },
+    [2788229376] = {
+        ["Universal Warp"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua"
+    },
+    [85509428618863] = {
+        ["WormIO"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/WormIO.lua"
+    },
+    [116610479068550] = {
+        ["Class Clash"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/ClassClash.lua"
+    },
+    [133614490579000] = {
+        ["Laser A Planet"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/Laser%20A%20Planet.lua"
+    },
+    [8737602449] = {
+        ["PlsDonate"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/PlsDonate.lua"
+    },
+    [292439477] = {
+        ["Universal Warp"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua"
+    },
+    [17625359962] = {
+        ["Universal Warp"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/warp.lua"
+    },
+    [3623096087] = {
+        ["Muscle Legends"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Games/musclelegends.lua",
+        ["Private server"] = "https://github.com/adubwon/geekUI/raw/refs/heads/main/Universal/privateserver.lua"
+    },
 }
 
 local CURRENT_PLACE_ID = game.PlaceId
-local SCRIPT_TO_LOAD = GAME_SCRIPTS[CURRENT_PLACE_ID]
+local AVAILABLE_SCRIPTS = GAME_SCRIPTS[CURRENT_PLACE_ID]
 
 --------------------------------------------------
 -- STORAGE
@@ -99,10 +124,10 @@ end
 -- Hover animation
 local function hover(btn, base, hover)
     btn.MouseEnter:Connect(function()
-        tw:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = hover}):Play()
+        tween(btn, {BackgroundColor3 = hover})
     end)
     btn.MouseLeave:Connect(function()
-        tw:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = base}):Play()
+        tween(btn, {BackgroundColor3 = base})
     end)
 end
 
@@ -110,17 +135,32 @@ end
 -- FILE HANDLING
 --------------------------------------------------
 
-local function saveKeyData()
+local function saveKeyData(scriptName)
     pcall(function()
         writefile(KEY_STORAGE_FILE, http:JSONEncode({
             key_verified = true,
             user_id = plr.UserId,
-            saved_key = CORRECT_KEY
+            saved_key = CORRECT_KEY,
+            last_script = scriptName or "default",
+            saved_at = os.time()
         }))
     end)
 end
 
 local function loadKeyData()
+    local success, result = pcall(function()
+        if isfile(KEY_STORAGE_FILE) then
+            local data = http:JSONDecode(readfile(KEY_STORAGE_FILE))
+            if data.key_verified and data.user_id == plr.UserId and data.saved_key == CORRECT_KEY then
+                return data.last_script
+            end
+        end
+        return nil
+    end)
+    return success and result
+end
+
+local function isKeyVerified()
     local success, result = pcall(function()
         if isfile(KEY_STORAGE_FILE) then
             local data = http:JSONDecode(readfile(KEY_STORAGE_FILE))
@@ -132,36 +172,175 @@ local function loadKeyData()
 end
 
 --------------------------------------------------
+-- SCRIPT SELECTION UI (Looks like key system)
+--------------------------------------------------
+
+local selectionGui = nil
+
+local function showScriptSelection()
+    if not AVAILABLE_SCRIPTS then
+        notify("Error", "No scripts available for this game.", 3)
+        return nil
+    end
+    
+    local scriptCount = 0
+    for _ in pairs(AVAILABLE_SCRIPTS) do
+        scriptCount = scriptCount + 1
+    end
+    
+    if scriptCount == 0 then
+        notify("Error", "No scripts available for this game.", 3)
+        return nil
+    end
+    
+    -- Destroy existing selection GUI if it exists
+    if selectionGui and selectionGui.Parent then
+        selectionGui:Destroy()
+    end
+    
+    -- Create selection GUI (similar to key system)
+    selectionGui = Instance.new("ScreenGui")
+    selectionGui.Name = "ScriptSelection"
+    selectionGui.ResetOnSpawn = false
+    selectionGui.Parent = game.CoreGui
+    
+    local mainFrame = Instance.new("Frame", selectionGui)
+    mainFrame.Size = UDim2.new(0, 450, 0, 100 + (scriptCount * 60))
+    mainFrame.Position = UDim2.new(0.5, -225, 0.5, -(50 + (scriptCount * 30)))
+    mainFrame.BackgroundColor3 = COLORS.Background
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    createCorner(mainFrame, 20)
+    createStroke(mainFrame, COLORS.Primary)
+    createGlow(mainFrame, COLORS.Primary)
+    
+    -- Header
+    local header = Instance.new("Frame", mainFrame)
+    header.Size = UDim2.new(1, 0, 0, 70)
+    header.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    header.BorderSizePixel = 0
+    createCorner(header, 20)
+    
+    local title = Instance.new("TextLabel", header)
+    title.Size = UDim2.new(1, -40, 0, 40)
+    title.Position = UDim2.new(0, 20, 0, 15)
+    title.Text = "Select Script"
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 24
+    title.TextColor3 = COLORS.Text
+    title.BackgroundTransparency = 1
+    
+    local subtitle = Instance.new("TextLabel", header)
+    subtitle.Size = UDim2.new(1, -40, 0, 20)
+    subtitle.Position = UDim2.new(0, 20, 0, 45)
+    subtitle.Text = "Choose a script to load for this game"
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.TextSize = 14
+    subtitle.TextColor3 = COLORS.TextDim
+    subtitle.BackgroundTransparency = 1
+    
+    -- Script buttons
+    local scrollFrame = Instance.new("ScrollingFrame", mainFrame)
+    scrollFrame.Size = UDim2.new(1, -40, 0, scriptCount * 55)
+    scrollFrame.Position = UDim2.new(0, 20, 0, 85)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, scriptCount * 55)
+    scrollFrame.ScrollBarThickness = 3
+    scrollFrame.ScrollBarImageColor3 = COLORS.Primary
+    
+    local buttonLayout = Instance.new("UIListLayout", scrollFrame)
+    buttonLayout.Padding = UDim.new(0, 10)
+    
+    local selectedScript = nil
+    local selectedScriptName = nil
+    
+    for name, url in pairs(AVAILABLE_SCRIPTS) do
+        local scriptBtn = Instance.new("TextButton", scrollFrame)
+        scriptBtn.Size = UDim2.new(1, 0, 0, 50)
+        scriptBtn.Text = name
+        scriptBtn.Font = Enum.Font.GothamBold
+        scriptBtn.TextSize = 16
+        scriptBtn.TextColor3 = COLORS.Text
+        scriptBtn.BackgroundColor3 = COLORS.Frame
+        scriptBtn.BorderSizePixel = 0
+        createCorner(scriptBtn, 10)
+        createStroke(scriptBtn, Color3.fromRGB(60, 60, 60))
+        
+        hover(scriptBtn, COLORS.Frame, COLORS.Primary)
+        
+        scriptBtn.MouseButton1Click:Connect(function()
+            selectedScript = url
+            selectedScriptName = name
+            selectionGui:Destroy()
+        end)
+    end
+    
+    -- Cancel button
+    local cancelBtn = Instance.new("TextButton", mainFrame)
+    cancelBtn.Size = UDim2.new(1, -40, 0, 45)
+    cancelBtn.Position = UDim2.new(0, 20, 1, -55)
+    cancelBtn.Text = "Cancel"
+    cancelBtn.Font = Enum.Font.GothamBold
+    cancelBtn.TextSize = 15
+    cancelBtn.TextColor3 = COLORS.Text
+    cancelBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    cancelBtn.BorderSizePixel = 0
+    createCorner(cancelBtn, 10)
+    
+    hover(cancelBtn, Color3.fromRGB(60, 60, 60), Color3.fromRGB(80, 80, 80))
+    
+    cancelBtn.MouseButton1Click:Connect(function()
+        selectionGui:Destroy()
+        selectedScript = nil
+    end)
+    
+    -- Wait for selection
+    while selectionGui and selectionGui.Parent do
+        task.wait()
+    end
+    
+    return selectedScript, selectedScriptName
+end
+
+--------------------------------------------------
 -- LOAD SCRIPT
 --------------------------------------------------
 
-local function loadMainScript()
-    if not SCRIPT_TO_LOAD then
-        notify("Error", "No script available for this game.", 3)
-        return
+local function loadSelectedScript(scriptUrl, scriptName)
+    if not scriptUrl then
+        notify("Error", "No script URL provided.", 3)
+        return false
     end
     
     local ok, err = pcall(function()
-        loadstring(game:HttpGet(SCRIPT_TO_LOAD))()
+        loadstring(game:HttpGet(scriptUrl))()
     end)
 
     if ok then
-        notify("Success", "Script loaded successfully!", 3)
+        notify("Success", string.format("'%s' loaded successfully!", scriptName), 3)
+        -- Save the selected script name
+        if scriptName then
+            saveKeyData(scriptName)
+        end
+        return true
     else
-        notify("Error", tostring(err), 5)
+        notify("Error", "Failed to load script: " .. tostring(err), 5)
+        return false
     end
 end
 
 --------------------------------------------------
--- CREATE UI
+-- CREATE MAIN UI
 --------------------------------------------------
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "WarpKeySystem"
-gui.ResetOnSpawn = false
-gui.Parent = game.CoreGui
+local mainGui = Instance.new("ScreenGui")
+mainGui.Name = "WarpKeySystem"
+mainGui.ResetOnSpawn = false
+mainGui.Parent = game.CoreGui
 
-local iconBtn = Instance.new("ImageButton", gui)
+local iconBtn = Instance.new("ImageButton", mainGui)
 iconBtn.Size = UDim2.new(0, 70, 0, 70)
 iconBtn.Position = UDim2.new(0, 20, 0, 20)
 iconBtn.Image = "rbxassetid://90013112630319"
@@ -179,24 +358,24 @@ createGlow(iconBtn, COLORS.Primary)
 -- MAIN FRAME
 --------------------------------------------------
 
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 420, 0, 320)
-frame.Position = UDim2.new(0.5, -210, 0.5, -160)
-frame.BackgroundColor3 = COLORS.Background
-frame.Visible = true
-frame.BorderSizePixel = 0
-frame.Active = true
-frame.Draggable = true
+local mainFrame = Instance.new("Frame", mainGui)
+mainFrame.Size = UDim2.new(0, 420, 0, 320)
+mainFrame.Position = UDim2.new(0.5, -210, 0.5, -160)
+mainFrame.BackgroundColor3 = COLORS.Background
+mainFrame.Visible = false
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
 
-createCorner(frame, 20)
-createStroke(frame, COLORS.Primary)
-createGlow(frame, COLORS.Primary)
+createCorner(mainFrame, 20)
+createStroke(mainFrame, COLORS.Primary)
+createGlow(mainFrame, COLORS.Primary)
 
 --------------------------------------------------
 -- HEADER
 --------------------------------------------------
 
-local header = Instance.new("Frame", frame)
+local header = Instance.new("Frame", mainFrame)
 header.Size = UDim2.new(1, 0, 0, 80)
 header.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
 header.BorderSizePixel = 0
@@ -215,7 +394,7 @@ title.BackgroundTransparency = 1
 -- INPUT
 --------------------------------------------------
 
-local inputFrame = Instance.new("Frame", frame)
+local inputFrame = Instance.new("Frame", mainFrame)
 inputFrame.Size = UDim2.new(1, -40, 0, 50)
 inputFrame.Position = UDim2.new(0, 20, 0, 120)
 inputFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -237,7 +416,7 @@ keyBox.TextSize = 15
 -- BUTTONS
 --------------------------------------------------
 
-local submit = Instance.new("TextButton", frame)
+local submit = Instance.new("TextButton", mainFrame)
 submit.Size = UDim2.new(1, -40, 0, 50)
 submit.Position = UDim2.new(0, 20, 0, 190)
 submit.Text = "Verify Key"
@@ -250,7 +429,7 @@ submit.BorderSizePixel = 0
 createCorner(submit, 12)
 createGlow(submit, COLORS.Primary)
 
-local getKey = Instance.new("TextButton", frame)
+local getKey = Instance.new("TextButton", mainFrame)
 getKey.Size = UDim2.new(1, -40, 0, 45)
 getKey.Position = UDim2.new(0, 20, 0, 250)
 getKey.Text = "Get Key"
@@ -266,22 +445,79 @@ hover(submit, COLORS.Primary, Color3.fromRGB(0, 180, 255))
 hover(getKey, Color3.fromRGB(40, 40, 40), Color3.fromRGB(60, 60, 60))
 
 --------------------------------------------------
--- AUTO LOAD (MOVED AFTER UI CREATION)
+-- PROCESS SCRIPT LOADING
 --------------------------------------------------
 
-local function handleAutoLoad()
-    if loadKeyData() and SCRIPT_TO_LOAD then
-        -- Hide both the frame AND the icon button
-        frame.Visible = false
-        iconBtn.Visible = false
-        
-        notify("Verified", "Loading script...", 2)
-        task.wait(0.5)
-        loadMainScript()
+local function processScriptLoading()
+    if not AVAILABLE_SCRIPTS then
+        notify("Error", "No scripts available for this game.", 3)
+        mainFrame.Visible = true
+        iconBtn.Visible = true
+        return
+    end
+    
+    local scriptCount = 0
+    for _ in pairs(AVAILABLE_SCRIPTS) do
+        scriptCount = scriptCount + 1
+    end
+    
+    if scriptCount == 0 then
+        notify("Error", "No scripts available for this game.", 3)
+        mainFrame.Visible = true
+        iconBtn.Visible = true
+    else
+        -- Show script selection UI
+        local scriptUrl, scriptName = showScriptSelection()
+        if scriptUrl and scriptName then
+            loadSelectedScript(scriptUrl, scriptName)
+        else
+            -- If user cancelled, show the main UI again
+            mainFrame.Visible = true
+            iconBtn.Visible = true
+        end
     end
 end
 
--- Run auto-load after UI is created
+--------------------------------------------------
+-- AUTO LOAD
+--------------------------------------------------
+
+local function handleAutoLoad()
+    if isKeyVerified() and AVAILABLE_SCRIPTS then
+        -- Hide main UI
+        mainFrame.Visible = false
+        iconBtn.Visible = true
+        
+        -- Check if we have a saved script preference
+        local lastScript = loadKeyData()
+        local scriptCount = 0
+        for _ in pairs(AVAILABLE_SCRIPTS) do
+            scriptCount = scriptCount + 1
+        end
+        
+        if scriptCount == 1 then
+            -- Only one script, load it directly
+            for name, url in pairs(AVAILABLE_SCRIPTS) do
+                loadSelectedScript(url, name)
+                break
+            end
+        elseif lastScript and AVAILABLE_SCRIPTS[lastScript] then
+            -- Load last used script
+            loadSelectedScript(AVAILABLE_SCRIPTS[lastScript], lastScript)
+        else
+            -- Multiple scripts, show selection
+            notify("Verified", "Select a script to load...", 2)
+            task.wait(0.5)
+            processScriptLoading()
+        end
+    else
+        -- Key not verified, show the main UI
+        mainFrame.Visible = true
+        iconBtn.Visible = true
+    end
+end
+
+-- Run auto-load
 handleAutoLoad()
 
 --------------------------------------------------
@@ -290,14 +526,14 @@ handleAutoLoad()
 
 submit.MouseButton1Click:Connect(function()
     if keyBox.Text == CORRECT_KEY then
-        saveKeyData()
+        saveKeyData("default")
         notify("Success", "Key verified!", 3)
         
-        -- Hide both UI elements before loading script
-        frame.Visible = false
-        iconBtn.Visible = false
+        -- Hide main UI
+        mainFrame.Visible = false
         
-        loadMainScript()
+        -- Process script loading
+        processScriptLoading()
     else
         notify("Invalid Key", "Wrong key entered.", 3)
     end
@@ -320,9 +556,19 @@ getKey.MouseButton1Click:Connect(function()
 end)
 
 iconBtn.MouseButton1Click:Connect(function()
-    frame.Visible = not frame.Visible
+    if isKeyVerified() then
+        -- If key is already verified, show script selection
+        mainFrame.Visible = false
+        processScriptLoading()
+    else
+        -- If key not verified, show the main frame
+        mainFrame.Visible = not mainFrame.Visible
+    end
 end)
 
---------------------------------------------------
--- END
---------------------------------------------------
+-- Close main frame when pressing escape
+uis.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Enum.KeyCode.Escape and mainFrame.Visible then
+        mainFrame.Visible = false
+    end
+end)
