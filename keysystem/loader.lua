@@ -10,7 +10,7 @@ local http = game:GetService("HttpService")
 -- CONFIG
 --------------------------------------------------
 
-local CORRECT_KEY = "coconut"
+local CORRECT_KEY = "sigmawarp"
 local DISCORD_LINK = "https://discord.gg/suffocated"
 
 -- SUPPORTED GAMES
